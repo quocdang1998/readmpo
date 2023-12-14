@@ -2,6 +2,9 @@
 #ifndef READMPO_H5_UTILS_TPP_
 #define READMPO_H5_UTILS_TPP_
 
+#include <sstream>    // std::ostringstream
+#include <stdexcept>  // std::runtime_error
+
 namespace readmpo {
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -10,7 +13,7 @@ namespace readmpo {
 
 // Get data from an HDF dataset in form of an ``std::vector``
 template <typename T>
-std::pair<std::vector<T>, merlin::intvec> get_dset(H5::Group * group, char const * dset_address) {
+std::pair<std::vector<T>, std::vector<std::uint64_t>> get_dset(H5::Group * group, const char * dset_address) {
     // open dataset
     H5::DataSet dset = group->openDataSet(dset_address);
     // get data shape
@@ -24,21 +27,21 @@ std::pair<std::vector<T>, merlin::intvec> get_dset(H5::Group * group, char const
     ::H5T_class_t type_class = dset.getTypeClass();
     if constexpr (std::is_same_v<T, std::string>) {
         if (type_class != H5T_STRING) {
-            FAILURE(std::runtime_error, "Incorrect type provided to the template.\n");
+            throw std::runtime_error("Incorrect type provided to the template.\n");
         }
     } else if constexpr (std::is_integral_v<T>) {
         if (type_class != H5T_INTEGER) {
-            FAILURE(std::runtime_error, "Incorrect type provided to the template.\n");
+            throw std::runtime_error("Incorrect type provided to the template.\n");
         }
         if (sizeof(T) != element_size) {
-            FAILURE(std::runtime_error, "Incorrect integer type provided to the template.\n");
+            throw std::runtime_error("Incorrect integer type provided to the template.\n");
         }
     } else if constexpr (std::is_floating_point_v<T>) {
         if (type_class != H5T_FLOAT) {
-            FAILURE(std::runtime_error, "Incorrect type provided to the template.\n");
+            throw std::runtime_error("Incorrect type provided to the template.\n");
         }
         if (sizeof(T) != element_size) {
-            FAILURE(std::runtime_error, "Incorrect float type provided to the template.\n");
+            throw std::runtime_error("Incorrect float type provided to the template.\n");
         }
     }
     // read data to a buffer
@@ -59,8 +62,35 @@ std::pair<std::vector<T>, merlin::intvec> get_dset(H5::Group * group, char const
     // close dataset
     dset.close();
     // convert shape to intvec
-    merlin::intvec data_shape(shape.data(), ndims);
-    return std::pair<std::vector<T>, merlin::intvec>(data, data_shape);
+    std::vector<std::uint64_t> data_shape(shape.begin(), shape.end());
+    return std::pair<std::vector<T>, std::vector<std::uint64_t>>(data, data_shape);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Utils for string
+// ---------------------------------------------------------------------------------------------------------------------
+
+// Streamable concept
+template <typename T>
+concept Streamable = requires(std::ostream & os, const T & obj) {
+    { os << obj } -> std::same_as<std::ostream &>;
+};
+
+// Output an object to a stream
+template <typename T, typename... Args>
+void dump_to_stream(std::ostream & os, const T & obj, const Args &... args) {
+    os << obj;
+    if constexpr (sizeof...(args) > 0) {
+        dump_to_stream(os, args...);
+    }
+}
+
+// Merge streamable objects into a string
+template <typename... Args>
+std::string stringify(const Args &... args) {
+    std::ostringstream out_stream;
+    dump_to_stream(out_stream, args...);
+    return out_stream.str();
 }
 
 }  // namespace readmpo

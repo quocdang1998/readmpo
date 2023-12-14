@@ -2,12 +2,16 @@
 #ifndef READMPO_MASTER_MPO_HPP_
 #define READMPO_MASTER_MPO_HPP_
 
+#include <map>     // std::map
 #include <string>  // std::string
 #include <vector>  // std::vector
 
-#include "H5File.h"  // H5::File
+#include "readmpo/nd_array.hpp"    // readmpo::NdArray
+#include "readmpo/single_mpo.hpp"  // readmpo::SingleMpo, readmpo::XsType
 
 namespace readmpo {
+
+using MpoLib = std::map<std::string, std::map<std::string, NdArray>>;
 
 /** @brief Class containing merged information of all MPOs.*/
 class MasterMpo {
@@ -21,11 +25,34 @@ class MasterMpo {
               const std::string & energy_mesh);
     /// @}
 
+    /// @name Retrieve data from MPO
+    /// @{
+    /** @brief Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions in
+     *  all MPO files.
+     *  @param isotopes List of isotopes.
+     *  @param reactions List of reactions.
+     *  @param skipped_dims List of lowercased skipped dimension.
+     *  @param type Cross section type to get.
+     */
+    MpoLib build_microlib_xs(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
+                             const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro);
+    /// @}
+
   protected:
     /** @brief Name of geometry.*/
     std::string geometry_;
     /** @brief Name of energy.*/
     std::string energy_mesh_;
+
+    /** @brief List of MPO files.*/
+    std::vector<SingleMpo> mpofiles_;
+
+    /** @brief Merged parameter space.*/
+    std::map<std::string, std::vector<double>> master_pspace_;
+    /** @brief Possible isotopes.*/
+    std::vector<std::string> avail_isotopes_;
+    /** @brief Possible reactions.*/
+    std::vector<std::string> avail_reactions_;
 };
 
 }  // namespace readmpo

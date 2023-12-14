@@ -1,37 +1,118 @@
 // Copyright 2023 quocdang1998
 #include "readmpo/master_mpo.hpp"
 
+#include <algorithm>  // std::copy, std::find, std::set_union, std::sort, std::unique
+#include <iostream>   // std::cout
+#include <iterator>   // std::back_inserter
+#include <set>        // std::set
+#include <utility>    // std::move
+
+#include "readmpo/h5_utils.hpp"  // readmpo::is_near
+
 namespace readmpo {
 
 // Constructor from list of MPO file names, name of homogenized geometry and name of energy mesh
 MasterMpo::MasterMpo(const std::vector<std::string> & mpofile_list, const std::string & geometry,
-                     const std::string & energy_mesh) : geometry_(geometry), energy_mesh_(energy_mesh) {
-    // open each file in the list
-    for (const std::string & mpofile_name : mpofile_list) {
-        H5::H5File * mpofile = new H5::H5File(filename.c_str(), H5F_ACC_RDONLY);
-        H5::Group root = mpofile->openGroup("/");
-        // read geometries
-        std::printf("    Geometries ");
-        auto [geometry_names, n_geometry] = get_dset<std::string>(&root, "geometry/GEOMETRY_NAME");
-        std::printf("[%zu] :", geometry_names.size());
-        for (std::string & geometry_name : geometry_names) {
-            std::printf(" %s", trim(geometry_name).c_str());
-        }
-        std::printf("\n");
-        // read energy meshes
-        std::printf("    Energy meshes ");
-        auto [energymesh_names, n_energymesh] = get_dset<std::string>(&root, "energymesh/ENERGYMESH_NAME");
-        std::printf("[%zu] :", energymesh_names.size());
-        for (int i_emesh = 0; i_emesh < energymesh_names.size(); i_emesh++) {
-            std::string & energymesh_name = energymesh_names[i_emesh];
-            std::printf(" %s", trim(energymesh_name).c_str());
-            std::string emesh_group_name = append_suffix("energymesh/energymesh_", i_emesh);
-            H5::Group emesh_group = root.openGroup(emesh_group_name.c_str());
-            auto [n_group, _] = get_dset<int>(&emesh_group, "NG");
-            std::printf("[%d]", n_group[0]);
-        }
-        std::printf("\n");
+                     const std::string & energy_mesh) :
+geometry_(geometry), energy_mesh_(energy_mesh) {
+    // check for non empty geometry and isotope
+    if (geometry.empty()) {
+        throw std::invalid_argument("Empty geometry provided.\n");
     }
+    if (energy_mesh.empty()) {
+        throw std::invalid_argument("Empty energymesh provided.\n");
+    }
+    // reserve memory for child MPO
+    this->mpofiles_.reserve(mpofile_list.size());
+    // save each mpo to vector
+    for (const std::string & mpofile_name : mpofile_list) {
+        // save each mpo
+        this->mpofiles_.push_back(SingleMpo(mpofile_name, geometry, energy_mesh));
+    }
+    // construct master parameter space
+    for (SingleMpo & mpofile : this->mpofiles_) {
+        // get pspace of each file
+        std::map<std::string, std::vector<double>> file_pspace = mpofile.get_state_params();
+        // merge each parameter to the master parameter
+        for (auto & [pname, pvalues] : file_pspace) {
+            // add name of parameter of not added
+            if (!this->master_pspace_.contains(pname)) {
+                this->master_pspace_[pname] = std::vector<double>();
+            }
+            // merge 2 ranges
+            std::copy(pvalues.begin(), pvalues.end(), std::back_inserter(this->master_pspace_[pname]));
+            std::sort(this->master_pspace_[pname].begin(), this->master_pspace_[pname].end());
+            auto last = std::unique(this->master_pspace_[pname].begin(), this->master_pspace_[pname].end(), is_near);
+            this->master_pspace_[pname].erase(last, this->master_pspace_[pname].end());
+        }
+        // calculate global index from local index
+        mpofile.construct_global_idx_map(this->master_pspace_);
+    }
+    for (auto & [name, value] : this->master_pspace_) {
+        std::cout << name << ": " << value << "\n";
+    }
+    // get list of available isotopes
+    std::set<std::string> set_isotopes;
+    for (SingleMpo & mpofile : this->mpofiles_) {
+        std::vector<std::string> mpo_isotopes = mpofile.get_isotopes();
+        set_isotopes.insert(mpo_isotopes.begin(), mpo_isotopes.end());
+    }
+    std::copy(set_isotopes.begin(), set_isotopes.end(), std::back_inserter(this->avail_isotopes_));
+    std::cout << "Avail isotopes (" << this->avail_isotopes_.size() << "): " << this->avail_isotopes_ << "\n";
+    // get list of available reactions
+    std::set<std::string> set_reactions;
+    for (SingleMpo & mpofile : this->mpofiles_) {
+        std::vector<std::string> mpo_reactions = mpofile.get_reactions();
+        set_reactions.insert(mpo_reactions.begin(), mpo_reactions.end());
+    }
+    std::copy(set_reactions.begin(), set_reactions.end(), std::back_inserter(this->avail_reactions_));
+    std::cout << "Avail reactions (" << this->avail_reactions_.size() << "): " << this->avail_reactions_ << "\n";
+}
+
+// Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions
+MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
+                                    const std::vector<std::string> & reactions,
+                                    const std::vector<std::string> & skipped_dims, XsType type) {
+    // check isotope and reaction
+    for (const std::string & isotope : isotopes) {
+        auto it = std::find(this->avail_isotopes_.begin(), this->avail_isotopes_.end(), isotope);
+        if (it == this->avail_isotopes_.end()) {
+            throw std::invalid_argument(stringify("Isotope ", isotope, " not found.\n"));
+        }
+    }
+    for (const std::string & reaction : reactions) {
+        auto it = std::find(this->avail_reactions_.begin(), this->avail_reactions_.end(), reaction);
+        if (it == this->avail_reactions_.end()) {
+            throw std::invalid_argument(stringify("Reaction ", reaction, " not found.\n"));
+        }
+    }
+    // get shape of each microlib
+    std::vector<std::uint64_t> global_skipped_idims;
+    std::vector<std::uint64_t> shape_lib;
+    shape_lib.push_back(this->mpofiles_[0].n_groups);
+    shape_lib.push_back(this->mpofiles_[0].n_zones);
+    std::uint64_t idx_param = 0;
+    for (auto & [param_name, param_values] : this->master_pspace_) {
+        auto it = std::find(skipped_dims.begin(), skipped_dims.end(), param_name);
+        if (it == skipped_dims.end()) {
+            shape_lib.push_back(param_values.size());
+        } else {
+            global_skipped_idims.push_back(idx_param);
+        }
+        idx_param++;
+    }
+    // retrieve data from each MPO file
+    MpoLib micro_lib;
+    for (const std::string & isotope : isotopes) {
+        for (const std::string & reaction : reactions) {
+            micro_lib[isotope][reaction] = NdArray(shape_lib);
+            for (SingleMpo & mpofile : this->mpofiles_) {
+                mpofile.retrieve_micro_xs(isotope, reaction, global_skipped_idims, micro_lib[isotope][reaction], type);
+            }
+            std::cout << micro_lib[isotope][reaction].str() << "\n";
+        }
+    }
+    return micro_lib;
 }
 
 }  // namespace readmpo
