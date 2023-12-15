@@ -19,7 +19,7 @@ namespace readmpo {
 
 /** @brief Check if 2 values are close to each other.*/
 inline bool is_near(const double & a, const double & b) {
-    return (std::abs(a - b) <= 1e-6 + 1e-4 * std::abs(std::min(a, b)));
+    return (std::abs(a - b) <= 1e-6 + 1e-5 * std::abs(std::min(a, b)));
 };
 
 // Stream operator

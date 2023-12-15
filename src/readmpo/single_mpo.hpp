@@ -101,10 +101,11 @@ class SingleMpo {
      *  @param output_data Multi-dimensional array to write result to. Its dimensions mut be equals to the number of
      *  dimensions in the parameter space minus the number of element in the argument ``skipped_dims``.
      *  @param type Type of cross section to retrieve.
+     *  @param anisotropy_order Anisotropy order to get for diffusion cross section.
      */
     void retrieve_micro_xs(const std::string & isotope, const std::string & reaction,
                            const std::vector<std::uint64_t> & skipped_dims, NdArray & output_data,
-                           XsType type = XsType::Micro);
+                           XsType type = XsType::Micro, std::uint64_t anisotropy_order = 0);
     /// @}
 
     /// @name Destructor

@@ -23,6 +23,9 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
         throw std::invalid_argument("Empty energymesh provided.\n");
     }
     // reserve memory for child MPO
+    if (mpofile_list.size() == 0) {
+        throw std::invalid_argument("Empty MPO file list.\n");
+    }
     this->mpofiles_.reserve(mpofile_list.size());
     // save each mpo to vector
     for (const std::string & mpofile_name : mpofile_list) {
@@ -45,11 +48,13 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
             auto last = std::unique(this->master_pspace_[pname].begin(), this->master_pspace_[pname].end(), is_near);
             this->master_pspace_[pname].erase(last, this->master_pspace_[pname].end());
         }
-        // calculate global index from local index
-        mpofile.construct_global_idx_map(this->master_pspace_);
     }
     for (auto & [name, value] : this->master_pspace_) {
-        std::cout << name << ": " << value << "\n";
+        std::cout << name << "(" << value.size() << ") : " << value << "\n";
+    }
+    // calculate global index from local index
+    for (SingleMpo & mpofile : this->mpofiles_) {
+        mpofile.construct_global_idx_map(this->master_pspace_);
     }
     // get list of available isotopes
     std::set<std::string> set_isotopes;
@@ -72,7 +77,8 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
 // Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions
 MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
                                     const std::vector<std::string> & reactions,
-                                    const std::vector<std::string> & skipped_dims, XsType type) {
+                                    const std::vector<std::string> & skipped_dims, XsType type,
+                                    std::uint64_t anisotropy_order) {
     // check isotope and reaction
     for (const std::string & isotope : isotopes) {
         auto it = std::find(this->avail_isotopes_.begin(), this->avail_isotopes_.end(), isotope);
@@ -105,11 +111,15 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
     MpoLib micro_lib;
     for (const std::string & isotope : isotopes) {
         for (const std::string & reaction : reactions) {
+            std::uint64_t anisop = 0;
+            if (reaction.find("Diffusion") != std::string::npos) {
+                anisop = anisotropy_order;
+            }
             micro_lib[isotope][reaction] = NdArray(shape_lib);
             for (SingleMpo & mpofile : this->mpofiles_) {
-                mpofile.retrieve_micro_xs(isotope, reaction, global_skipped_idims, micro_lib[isotope][reaction], type);
+                mpofile.retrieve_micro_xs(isotope, reaction, global_skipped_idims, micro_lib[isotope][reaction], type,
+                                          anisop);
             }
-            std::cout << micro_lib[isotope][reaction].str() << "\n";
         }
     }
     return micro_lib;

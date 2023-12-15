@@ -3,18 +3,20 @@ project(readmpo LANGUAGES CXX)
 
 find_package(HDF5 COMPONENTS CXX)
 list(APPEND READMPO_SRC_CPP
+     glob.cpp
      h5_utils.cpp
      nd_array.cpp
      master_mpo.cpp
+     query_mpo.cpp
      single_mpo.cpp
 )
 list(TRANSFORM READMPO_SRC_CPP PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/src/readmpo/)
 
 add_library(libreadmpo STATIC ${READMPO_SRC_CPP})
+set_property(TARGET libreadmpo PROPERTY OUTPUT_NAME readmpo)
 set_property(TARGET libreadmpo PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
 target_include_directories(libreadmpo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${HDF5_INCLUDE_DIRS})
 target_compile_features(libreadmpo PUBLIC cxx_std_20)
-message(STATUS "H5 include : ${HDF5_INCLUDE_DIRS}")
 target_link_libraries(libreadmpo PUBLIC ${HDF5_CXX_LIBRARIES} ${HDF5_C_LIBRARIES})
 
 add_executable(readmpo ${CMAKE_CURRENT_SOURCE_DIR}/src/readmpo/main.cpp)

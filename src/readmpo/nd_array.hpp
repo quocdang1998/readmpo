@@ -1,3 +1,4 @@
+// Copyright 2023 quocdang1998
 #ifndef READMPO_ND_ARRAY_HPP_
 #define READMPO_ND_ARRAY_HPP_
 

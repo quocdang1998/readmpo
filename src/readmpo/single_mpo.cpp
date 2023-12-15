@@ -138,7 +138,7 @@ void SingleMpo::construct_global_idx_map(const std::map<std::string, std::vector
 // Retrieve microscopic homogenized cross section of an isotope and a reaction from MPO
 void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string & reaction,
                                   const std::vector<std::uint64_t> & skipped_dims, NdArray & output_data,
-                                  XsType type) {
+                                  XsType type, std::uint64_t anisotropy_order) {
     // check dimensionality
     if (output_data.ndim() - 2 != this->map_global_idx_.size() - skipped_dims.size()) {
         throw std::invalid_argument("Inconsistance of number of dimension between arguments.\n");
@@ -156,13 +156,21 @@ void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string
         std::clog << "This MPO does not contain the reaction " << reaction << "\n";
         return;
     }
+    if (reaction.find("Scattering") != std::string::npos) {
+        throw std::logic_error("Get Scattering cross section not implemented.\n");
+    }
     std::uint64_t reaction_idx = this->map_reactions_[reaction];
+    // if anisotropy order provided, reaction must be diffusion
+    if ((anisotropy_order != 0) && (reaction.find("Diffusion") == std::string::npos)) {
+        throw std::invalid_argument("Anisotropy order can only be provided with Diffusion reaction.\n");
+    }
     // get addrxs (address of cross section)
     auto [addrxs, addrxs_shape] = get_dset<int>(this->output_, "info/ADDRXS");
     // loop over each statept
     std::vector<std::string> statepts = ls_groups(this->output_, "statept_");
     std::vector<std::uint64_t> output_index(output_data.ndim());
     std::vector<std::uint64_t> cross_section_idx = {0, isotope_idx, reaction_idx};
+    std::vector<std::uint64_t> anisotropy_idx = {0, isotope_idx, this->map_reactions_.size()};
     for (std::string & statept_name : statepts) {
         // get statept
         H5::Group statept = this->output_->openGroup(statept_name.c_str());
@@ -193,12 +201,26 @@ void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string
             auto [addrzx_data, _naddrzx] = get_dset<int>(&zone, "ADDRZX");
             std::uint64_t addrzx = addrzx_data[0];
             cross_section_idx[0] = addrzx;
+            anisotropy_idx[0] = addrzx;
             // open cross section
             auto [cross_sections, cross_section_shape] = get_dset<float>(&zone, "CROSSECTION");
-            std::uint64_t address_xs = addrxs[ndim_to_c_idx(cross_section_idx, addrxs_shape)];
+            std::int64_t address_xs = addrxs[ndim_to_c_idx(cross_section_idx, addrxs_shape)];
+            if (address_xs < 0) {
+                std::clog << "Cross section not found for isotope " << isotope << " reaction " << reaction << "\n";
+                continue;
+            }
+            // check for anisotropy order
+            std::uint64_t max_anisotropy_order = addrxs[ndim_to_c_idx(anisotropy_idx, addrxs_shape)];
+            if (anisotropy_order >= max_anisotropy_order) {
+                throw std::invalid_argument("Anisotropy order bigger than max anisotropy order.\n");
+            }
+            address_xs += anisotropy_order * this->n_groups;
             // write cross section to data for each group
             for (std::uint64_t i_group = 0; i_group < this->n_groups; i_group++) {
                 output_index[0] = i_group;
+                if (output_data[output_index] != 0.0) {
+                    std::clog << "Overwrite at index " << output_index << "\n";
+                }
                 switch (type) {
                     case XsType::Micro: {
                         output_data[output_index] = cross_sections[address_xs + i_group];

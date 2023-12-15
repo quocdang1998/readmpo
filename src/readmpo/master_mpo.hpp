@@ -33,9 +33,11 @@ class MasterMpo {
      *  @param reactions List of reactions.
      *  @param skipped_dims List of lowercased skipped dimension.
      *  @param type Cross section type to get.
+     *  @param anisotropy_order Anisotropy order to get for diffusion cross section.
      */
     MpoLib build_microlib_xs(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
-                             const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro);
+                             const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro,
+                             std::uint64_t anisotropy_order = 0);
     /// @}
 
   protected:
