@@ -1,2 +1,8 @@
 # C++ build dir
 build
+
+# Ignore folder starts with .
+.*
+!/.clang-format
+!/.gitignore
+!.gitattributes
