@@ -3,8 +3,8 @@
 #define READMPO_QUERY_MPO_HPP_
 
 #include <map>     // std::map
-#include <vector>  // std::vector
 #include <string>  // std::string
+#include <vector>  // std::vector
 
 namespace readmpo {
 

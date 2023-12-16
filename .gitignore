@@ -6,3 +6,18 @@ build
 !/.clang-format
 !/.gitignore
 !.gitattributes
+
+# Python config file
+readmpo_config.py
+
+# Python binary module
+readmpo/__init__*
+
+# Python cache
+__pycache__/
+
+# Sphinx build dir
+docs/build
+
+# Doxygen output
+docs/source/xml

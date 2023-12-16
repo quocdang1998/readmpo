@@ -102,9 +102,9 @@ std::vector<std::string> glob(const std::string & pattern) {
         return result;
     }
     std::regex regex_pattern(glob_to_regex(pattern), std::regex::ECMAScript);
-    for (const std::filesystem::directory_entry & dir_entry : std::filesystem::recursive_directory_iterator(base_path)) {
-        if (std::regex_match(dir_entry.path().string(), regex_pattern)) {
-            result.push_back(dir_entry.path().string());
+    for (const std::filesystem::directory_entry & d_entry : std::filesystem::recursive_directory_iterator(base_path)) {
+        if (std::regex_match(d_entry.path().string(), regex_pattern)) {
+            result.push_back(d_entry.path().string());
         }
     }
     return result;

@@ -17,7 +17,7 @@ std::map<std::string, std::vector<std::string>> query_mpo(const std::string & mp
     H5::H5File mpofile(mpofile_name.c_str(), H5F_ACC_RDONLY);
     // get geometry names
     auto [geometry_names, n_geometry] = get_dset<std::string>(&mpofile, "geometry/GEOMETRY_NAME");
-    for (std::string & geometry_name: geometry_names) {
+    for (std::string & geometry_name : geometry_names) {
         result["geom"].push_back(trim(geometry_name));
     }
     // get energy mesh

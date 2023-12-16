@@ -25,6 +25,18 @@ class MasterMpo {
               const std::string & energy_mesh);
     /// @}
 
+    /// @name Attributes
+    /// @{
+    /** @brief Get merged parameter space.*/
+    constexpr const std::map<std::string, std::vector<double>> & master_pspace(void) const noexcept {
+        return this->master_pspace_;
+    }
+    /** @brief Get available isotopes.*/
+    constexpr const std::vector<std::string> & get_isotopes(void) const noexcept { return this->avail_isotopes_; }
+    /** @brief Get available reactions.*/
+    constexpr const std::vector<std::string> & get_reactions(void) const noexcept { return this->avail_reactions_; }
+    /// @}
+
     /// @name Retrieve data from MPO
     /// @{
     /** @brief Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions in

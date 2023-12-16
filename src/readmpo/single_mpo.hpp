@@ -44,22 +44,26 @@ class SingleMpo {
     SingleMpo & operator=(const SingleMpo & src) = delete;
     /** @brief Move constructor.*/
     SingleMpo(SingleMpo && src) :
+    n_zones(src.n_zones),
+    n_groups(src.n_groups),
+    fname_(src.fname_),
+    output_name_(src.output_name_),
     map_global_idx_(std::move(src.map_global_idx_)),
     map_global_idim_(std::move(src.map_global_idim_)),
     map_local_idim_(std::move(src.map_local_idim_)),
     map_isotopes_(std::move(src.map_isotopes_)),
-    map_reactions_(std::move(src.map_reactions_)),
-    n_zones(src.n_zones),
-    n_groups(src.n_groups) {
+    map_reactions_(std::move(src.map_reactions_)) {
         this->file_ = std::exchange(src.file_, nullptr);
         this->output_ = std::exchange(src.output_, nullptr);
     }
     /** @brief Copy assignment.*/
     SingleMpo & operator=(SingleMpo && src) {
-        this->file_ = std::exchange(src.file_, nullptr);
-        this->output_ = std::exchange(src.output_, nullptr);
         this->n_zones = std::exchange(src.n_zones, 0);
         this->n_groups = std::exchange(src.n_groups, 0);
+        this->fname_ = std::exchange(src.fname_, std::string());
+        this->file_ = std::exchange(src.file_, nullptr);
+        this->output_name_ = std::exchange(src.output_name_, std::string());
+        this->output_ = std::exchange(src.output_, nullptr);
         this->map_global_idx_ = std::exchange(src.map_global_idx_, std::vector<std::vector<std::uint64_t>>());
         this->map_global_idim_ = std::exchange(src.map_global_idim_, std::vector<std::uint64_t>());
         this->map_local_idim_ = std::exchange(src.map_local_idim_, std::vector<std::uint64_t>());
@@ -108,6 +112,12 @@ class SingleMpo {
                            XsType type = XsType::Micro, std::uint64_t anisotropy_order = 0);
     /// @}
 
+    /// @name Representation
+    /// @{
+    /** @brief String representation.*/
+    std::string str(void) const;
+    /// @}
+
     /// @name Destructor
     /// @{
     /** @brief Default destructor.*/
@@ -115,8 +125,12 @@ class SingleMpo {
     /// @}
 
   protected:
+    /** @brief Name of the file.*/
+    std::string fname_;
     /** @brief Pointer to H5 file.*/
     H5::H5File * file_ = nullptr;
+    /** @brief Name of the output.*/
+    std::string output_name_;
     /** @brief Pointer to the H5 group of ``output``.*/
     H5::Group * output_ = nullptr;
 

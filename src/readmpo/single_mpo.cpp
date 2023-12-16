@@ -4,6 +4,7 @@
 #include <algorithm>  // std::find
 #include <iostream>   // std::clog
 #include <stdexcept>  // std::invalid_argument
+#include <sstream>    // std::ostringstream
 
 #include "readmpo/h5_utils.hpp"  // readmpo::check_string_in_array, readmpo::get_dset, readmpo::ndim_to_c_idx,
                                  // readmpo::stringify, readmpo::lowercase, readmpo::trim, readmpo::is_near,
@@ -14,6 +15,7 @@ namespace readmpo {
 // Constructor from list of MPO file names, name of homogenized geometry and name of energy mesh
 SingleMpo::SingleMpo(const std::string & mpofile_name, const std::string & geometry, const std::string & energy_mesh) {
     // get file pointer
+    this->fname_ = mpofile_name;
     this->file_ = new H5::H5File(mpofile_name.c_str(), H5F_ACC_RDONLY);
     // get geometry ID and number of zones
     auto [geometry_names, n_geometry] = get_dset<std::string>(this->file_, "geometry/GEOMETRY_NAME");
@@ -39,8 +41,8 @@ SingleMpo::SingleMpo(const std::string & mpofile_name, const std::string & geome
         throw std::invalid_argument("The combination of energy mesh and geometry is not recorded in the MPO.\n");
     }
     // open output
-    std::string output_name = stringify("output/output_", output_id);
-    this->output_ = new H5::Group(this->file_->openGroup(output_name.c_str()));
+    this->output_name_ = stringify("output/output_", output_id);
+    this->output_ = new H5::Group(this->file_->openGroup(this->output_name_.c_str()));
     // get map of isotope name to its index
     auto [isotope_names, n_isotopes] = get_dset<std::string>(this->file_, "contents/isotopes/ISOTOPENAME");
     auto [i_isos, n_isos_output] = get_dset<int>(this->output_, "info/ISOTOPE");
@@ -137,8 +139,8 @@ void SingleMpo::construct_global_idx_map(const std::map<std::string, std::vector
 
 // Retrieve microscopic homogenized cross section of an isotope and a reaction from MPO
 void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string & reaction,
-                                  const std::vector<std::uint64_t> & skipped_dims, NdArray & output_data,
-                                  XsType type, std::uint64_t anisotropy_order) {
+                                  const std::vector<std::uint64_t> & skipped_dims, NdArray & output_data, XsType type,
+                                  std::uint64_t anisotropy_order) {
     // check dimensionality
     if (output_data.ndim() - 2 != this->map_global_idx_.size() - skipped_dims.size()) {
         throw std::invalid_argument("Inconsistance of number of dimension between arguments.\n");
@@ -222,19 +224,19 @@ void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string
                     std::clog << "Overwrite at index " << output_index << "\n";
                 }
                 switch (type) {
-                    case XsType::Micro: {
+                    case XsType::Micro : {
                         output_data[output_index] = cross_sections[address_xs + i_group];
                         break;
                     }
-                    case XsType::Macro: {
+                    case XsType::Macro : {
                         output_data[output_index] = iso_conc * cross_sections[address_xs + i_group];
                         break;
                     }
-                    case XsType::Flux: {
+                    case XsType::Flux : {
                         output_data[output_index] = zoneflux[i_group];
                         break;
                     }
-                    case XsType::ReactRate: {
+                    case XsType::ReactRate : {
                         output_data[output_index] = zoneflux[i_group] * iso_conc * cross_sections[address_xs + i_group];
                         break;
                     }
@@ -242,6 +244,13 @@ void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string
             }
         }
     }
+}
+
+// String representation
+std::string SingleMpo::str(void) const {
+    std::ostringstream os;
+    os << "<MpoFile \"" << this->fname_ << "\" output \"" << this->output_name_ << "\">";
+    return os.str();
 }
 
 // Default destructor

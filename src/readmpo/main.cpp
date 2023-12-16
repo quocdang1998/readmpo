@@ -6,8 +6,8 @@
 
 #include "readmpo/glob.hpp"        // readmpo::glob
 #include "readmpo/h5_utils.hpp"    // readmpo::stringify
-#include "readmpo/query_mpo.hpp"   // readmpo::query_mpo
 #include "readmpo/master_mpo.hpp"  // readmpo::MasterMpo
+#include "readmpo/query_mpo.hpp"   // readmpo::query_mpo
 
 const char * help_message = R"(Retrieve microscopic cross-section from an MPO.
 Options:
@@ -17,7 +17,7 @@ Options:
         -q, --query: Query the MPO
     Get data from MPO:
         -g, --geometry: Name of geometry.
-        -e, --energymesh: Name of energy mesh.
+        -e, --energy-mesh: Name of energy mesh.
         -i, --isotope: Name of isotope (multiple calls allowed).
         -r, --reaction: Name of reaction (multiple calls allowed).
         -o, --output: Name of output folder. Default: ".".

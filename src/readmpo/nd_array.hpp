@@ -33,6 +33,8 @@ class NdArray {
 
     /// @name Attributes
     /// @{
+    /** @brief Get pointer to data.*/
+    const double * data(void) const noexcept { return this->data_.data(); }
     /** @brief Get number of dimensions.*/
     std::uint64_t ndim(void) const noexcept { return this->shape_.size(); }
     /** @brief Get constant reference to the shape vector.*/
