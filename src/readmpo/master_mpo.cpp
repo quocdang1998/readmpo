@@ -7,6 +7,8 @@
 #include <set>        // std::set
 #include <utility>    // std::move
 
+#include <omp.h>  // #pragma omp
+
 #include "readmpo/h5_utils.hpp"  // readmpo::is_near
 
 namespace readmpo {
@@ -107,16 +109,23 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
         }
         idx_param++;
     }
-    // retrieve data from each MPO file
+    // allocate data for microlib
     MpoLib micro_lib;
     for (const std::string & isotope : isotopes) {
         for (const std::string & reaction : reactions) {
-            std::uint64_t anisop = 0;
-            if (reaction.find("Diffusion") != std::string::npos) {
-                anisop = anisotropy_order;
-            }
-            micro_lib[isotope][reaction] = NdArray(shape_lib);
-            for (SingleMpo & mpofile : this->mpofiles_) {
+        micro_lib[isotope][reaction] = NdArray(shape_lib);
+        }
+    }
+    // retrieve data from each MPO file
+    #pragma omp parallel for
+    for (std::int64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
+        SingleMpo & mpofile = this->mpofiles_[i_fmpo];
+        for (const std::string & isotope : isotopes) {
+            for (const std::string & reaction : reactions) {
+                std::uint64_t anisop = 0;
+                if (reaction.find("Diffusion") != std::string::npos) {
+                    anisop = anisotropy_order;
+                }
                 mpofile.retrieve_micro_xs(isotope, reaction, global_skipped_idims, micro_lib[isotope][reaction], type,
                                           anisop);
             }

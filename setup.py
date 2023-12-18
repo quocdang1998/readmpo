@@ -5,10 +5,11 @@ import numpy as np
 
 from setuptools import setup
 from pybind11.setup_helpers import Pybind11Extension
-from readmpo_config import *
 
 # add current directory to path
 sys.path.append(os.path.curdir)
+
+from readmpo_config import *
 
 # option for compiling extension
 ext_options = {
@@ -18,7 +19,7 @@ ext_options = {
     "libraries": ["readmpo", "hdf5_cpp", "hdf5"],
     "library_dirs": ["build"]
 }
-H5_LIBDIRS = [os.path.dirname(libpath) for libpath in (H5_CXX_LIB.split(";") + H5_C_LIB.split(";"))]
+H5_LIBDIRS = [os.path.join(os.path.dirname(libpath), "lib") for libpath in H5_INCLUDE.split(";")]
 ext_options["library_dirs"] += H5_LIBDIRS
 if sys.platform == "linux":
     ext_options["extra_compile_args"] = ["-std=c++20"]

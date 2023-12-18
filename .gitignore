@@ -10,6 +10,9 @@ build
 # Python config file
 readmpo_config.py
 
+# Python egg_info
+readmpo.egg-info/
+
 # Python binary module
 readmpo/__init__*
 
