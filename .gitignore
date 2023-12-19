@@ -14,7 +14,8 @@ readmpo_config.py
 readmpo.egg-info/
 
 # Python binary module
-readmpo/__init__*
+readmpo/__init__.py
+readmpo/clib.*
 
 # Python cache
 __pycache__/

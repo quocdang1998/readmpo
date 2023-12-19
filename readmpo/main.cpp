@@ -177,7 +177,7 @@ void wrap_query_mpo(py::module & readmpo_package) {
 }  // namespace readmpo
 
 // Wrap main module
-PYBIND11_MODULE(readmpo, readmpo_package) {
+PYBIND11_MODULE(clib, readmpo_package) {
     readmpo_package.doc() = "Python interface of readmpo library.";
     // wrap NdArray
     readmpo::wrap_nd_array(readmpo_package);

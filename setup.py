@@ -3,6 +3,7 @@ import os
 import sys
 import numpy as np
 
+from jinja2 import Template
 from setuptools import setup
 from pybind11.setup_helpers import Pybind11Extension
 
@@ -28,11 +29,26 @@ elif sys.platform == "win32":
     ext_options["extra_compile_args"] = ["-std:c++20"]
     ext_options["depends"] = ["readmpo/main.cpp", "build/readmpo.lib"]
 
+# build extension
 readmpo_extensions = [
-    Pybind11Extension("readmpo.__init__", ["readmpo/main.cpp"], **ext_options)
+    Pybind11Extension("readmpo.clib", ["readmpo/main.cpp"], **ext_options)
 ]
 
+# create __init__.py
+if sys.platform == "win32":
+    init_template_txt = "import os\nos.add_dll_directory(\"{{ h5_libdir }}\")\n"
+else:
+    init_template_txt = ""
+init_template_txt += "from readmpo.clib import *\n"
+init_template = Template(init_template_txt)
+template_dict = {
+    "h5_libdir": os.path.abspath(os.path.join(H5_LIBDIRS[0], "../bin")).replace("\\", "\\\\")
+}
+
 if __name__ == "__main__":
+    with open(os.path.join(os.path.curdir, "readmpo/__init__.py"), "w") as init_file:
+        init_file.write(init_template.render(template_dict))
+
     setup(name="readmpo",
           version="1.0.0",
           author="quocdang1998",
