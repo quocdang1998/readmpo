@@ -56,7 +56,7 @@ class SingleMpo {
         this->file_ = std::exchange(src.file_, nullptr);
         this->output_ = std::exchange(src.output_, nullptr);
     }
-    /** @brief Copy assignment.*/
+    /** @brief Move assignment.*/
     SingleMpo & operator=(SingleMpo && src) {
         this->n_zones = std::exchange(src.n_zones, 0);
         this->n_groups = std::exchange(src.n_groups, 0);
@@ -110,6 +110,12 @@ class SingleMpo {
     void retrieve_micro_xs(const std::string & isotope, const std::string & reaction,
                            const std::vector<std::uint64_t> & skipped_dims, NdArray & output_data,
                            XsType type = XsType::Micro, std::uint64_t anisotropy_order = 0);
+    /** @brief Retrieve concentration from MPO.
+     *  @param isotope Isotope to get.
+     *  @param burnup_i_dim Index of burnup axis.
+     *  @param output Output array to write result to.
+     */
+    void get_concentration(const std::string & isotope, std::uint64_t burnup_i_dim, NdArray & output);
     /// @}
 
     /// @name Representation

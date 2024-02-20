@@ -162,6 +162,17 @@ void wrap_master_mpo(py::module & readmpo_package) {
         "Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions in all MPO files.",
         py::arg("isotopes"), py::arg("reactions"), py::arg("skipped_dims"), py::arg("type") = XsType::Micro, py::arg("anisotropy_order") = 0
     );
+    master_mpo_pyclass.def(
+        "get_concentration",
+        [](MasterMpo & self, py::list & isotopes_list, const std::string & burnup_name) {
+            std::vector<std::string> isotopes = isotopes_list.cast<std::vector<std::string>>();
+            auto conclib = self.get_concentration(isotopes, burnup_name);
+            py::dict result = py::cast(conclib);
+            return result;
+        },
+        "Retrieve concentration of some isotopes at each value of burnup in each zone.",
+        py::arg("isotopes"), py::arg("burnup_name") = "burnup"
+    );
 }
 
 // Wrap ``readmpo::query_mpo`` function

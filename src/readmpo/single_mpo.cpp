@@ -208,7 +208,8 @@ void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string
             auto [cross_sections, cross_section_shape] = get_dset<float>(&zone, "CROSSECTION");
             std::int64_t address_xs = addrxs[ndim_to_c_idx(cross_section_idx, addrxs_shape)];
             if (address_xs < 0) {
-                std::clog << "Cross section not found for isotope " << isotope << " reaction " << reaction << "\n";
+                std::clog << "Cross section not found for isotope " << isotope << " reaction " << reaction
+                          << " state point " << statept_name << " in zone " << i_zone << "\n";
                 continue;
             }
             // check for anisotropy order
@@ -242,6 +243,46 @@ void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string
                     }
                 }
             }
+        }
+    }
+}
+
+// Retrieve concentration from MPO
+void SingleMpo::get_concentration(const std::string & isotope, std::uint64_t burnup_i_dim, NdArray & output) {
+    // check dimensionality
+    if (output.ndim() != 2) {
+        throw std::invalid_argument("Output must be a 2 dimensional array.\n");
+    }
+    if (output.shape()[1] != this->n_zones) {
+        throw std::invalid_argument("Shape of the second axis must be a NZONE.\n");
+    }
+    // check if isotope is in MPO file
+    if (!this->map_isotopes_.contains(isotope)) {
+        std::clog << "This MPO does not contain the isotope " << isotope << "\n";
+        return;
+    }
+    std::uint64_t isotope_idx = this->map_isotopes_[isotope];
+    // loop over each statept
+    std::vector<std::uint64_t> output_index(output.ndim());
+    std::vector<std::string> statepts = ls_groups(this->output_, "statept_");
+    for (std::string & statept_name : statepts) {
+        // get statept
+        H5::Group statept = this->output_->openGroup(statept_name.c_str());
+        // get global index inside the output array
+        auto [local_idx, total_ndim] = get_dset<int>(&statept, "PARAMVALUEORD");
+        std::uint64_t idim_local = this->map_local_idim_[burnup_i_dim];
+        std::uint64_t index_local = local_idx[idim_local];
+        std::uint64_t index_global = this->map_global_idx_[idim_local][index_local];
+        output_index[0] = index_global;
+        // loop over each zone
+        for (std::uint64_t i_zone = 0; i_zone < this->n_zones; i_zone++) {
+            // open zone
+            output_index[1] = i_zone;
+            std::string zone_name = stringify("zone_", i_zone);
+            H5::Group zone = statept.openGroup(zone_name.c_str());
+            // get isotope concentration
+            auto [concentrations, _n_concs] = get_dset<float>(&zone, "CONCENTRATION");
+            output[output_index] = concentrations[isotope_idx];
         }
     }
 }

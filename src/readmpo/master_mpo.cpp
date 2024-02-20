@@ -7,8 +7,6 @@
 #include <set>        // std::set
 #include <utility>    // std::move
 
-#include <omp.h>  // #pragma omp
-
 #include "readmpo/h5_utils.hpp"  // readmpo::is_near
 
 namespace readmpo {
@@ -33,6 +31,13 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
     for (const std::string & mpofile_name : mpofile_list) {
         // save each mpo
         this->mpofiles_.push_back(SingleMpo(mpofile_name, geometry, energy_mesh));
+        if (this->n_zone_ == 0) {
+            this->n_zone_ = this->mpofiles_.back().n_zones;
+        } else {
+            if (this->n_zone_ != this->mpofiles_.back().n_zones) {
+                throw std::invalid_argument("Inconsistent geometry across MPOs.\n");
+            }
+        }
     }
     // construct master parameter space
     for (SingleMpo & mpofile : this->mpofiles_) {
@@ -113,12 +118,12 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
     MpoLib micro_lib;
     for (const std::string & isotope : isotopes) {
         for (const std::string & reaction : reactions) {
-        micro_lib[isotope][reaction] = NdArray(shape_lib);
+            micro_lib[isotope][reaction] = NdArray(shape_lib);
         }
     }
     // retrieve data from each MPO file
-    #pragma omp parallel for
-    for (std::int64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
+    std::printf("\n");
+    for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
         SingleMpo & mpofile = this->mpofiles_[i_fmpo];
         for (const std::string & isotope : isotopes) {
             for (const std::string & reaction : reactions) {
@@ -130,8 +135,35 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
                                           anisop);
             }
         }
+        print_process(static_cast<double>(i_fmpo) / static_cast<double>(this->mpofiles_.size()));
     }
     return micro_lib;
+}
+
+// Retrieve concentration of some isotopes at each value of burnup in each zone
+ConcentrationLib MasterMpo::get_concentration(const std::vector<std::string> & isotopes,
+                                              const std::string & burnup_name) {
+    // check isotope
+    for (const std::string & isotope : isotopes) {
+        auto it = std::find(this->avail_isotopes_.begin(), this->avail_isotopes_.end(), isotope);
+        if (it == this->avail_isotopes_.end()) {
+            throw std::invalid_argument(stringify("Isotope ", isotope, " not found.\n"));
+        }
+    }
+    // allocate data for concentration lib
+    ConcentrationLib conc_lib;
+    for (const std::string & isotope : isotopes) {
+        conc_lib[isotope] = NdArray({this->master_pspace_.at(burnup_name).size(), this->n_zone_});
+    }
+    // get concentration of isotope from each MPO
+    std::uint64_t bu_idx = std::distance(this->master_pspace_.begin(), this->master_pspace_.find(burnup_name));
+    for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
+        SingleMpo & mpofile = this->mpofiles_[i_fmpo];
+        for (const std::string & isotope : isotopes) {
+            mpofile.get_concentration(isotope, bu_idx, conc_lib[isotope]);
+        }
+    }
+    return conc_lib;
 }
 
 }  // namespace readmpo

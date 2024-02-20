@@ -30,6 +30,9 @@ std::ostream & operator<<(std::ostream & os, const std::vector<T> & v) {
     return os;
 }
 
+/** @brief Print percentage of the process.*/
+void print_process(const double & percent);
+
 // Utils for HDF5 read
 // -------------------
 

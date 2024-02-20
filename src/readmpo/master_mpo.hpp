@@ -12,6 +12,7 @@
 namespace readmpo {
 
 using MpoLib = std::map<std::string, std::map<std::string, NdArray>>;
+using ConcentrationLib = std::map<std::string, NdArray>;
 
 /** @brief Class containing merged information of all MPOs.*/
 class MasterMpo {
@@ -23,6 +24,14 @@ class MasterMpo {
     /** @brief Constructor from list of MPO file names, name of homogenized geometry and name of energy mesh.*/
     MasterMpo(const std::vector<std::string> & mpofile_list, const std::string & geometry,
               const std::string & energy_mesh);
+    /// @}
+
+    /// @name Copy and move
+    /// @{
+    /** @brief Copy constructor.*/
+    MasterMpo(const MasterMpo & src) = delete;
+    /** @brief Copy assignment.*/
+    MasterMpo & operator=(const MasterMpo & src) = delete;
     /// @}
 
     /// @name Attributes
@@ -50,6 +59,12 @@ class MasterMpo {
     MpoLib build_microlib_xs(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
                              const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro,
                              std::uint64_t anisotropy_order = 0);
+    /** @brief Retrieve concentration of some isotopes at each value of burnup in each zone.
+     *  @param isotopes List of isotopes.
+     *  @param burnup_name Name of parameter representing burnup.
+     */
+    ConcentrationLib get_concentration(const std::vector<std::string> & isotopes,
+                                       const std::string & burnup_name = "burnup");
     /// @}
 
   protected:
@@ -57,6 +72,8 @@ class MasterMpo {
     std::string geometry_;
     /** @brief Name of energy.*/
     std::string energy_mesh_;
+    /** @brief Number of zone.*/
+    std::uint16_t n_zone_ = 0;
 
     /** @brief List of MPO files.*/
     std::vector<SingleMpo> mpofiles_;

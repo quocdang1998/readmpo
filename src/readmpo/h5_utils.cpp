@@ -2,11 +2,21 @@
 #include "readmpo/h5_utils.hpp"
 
 #include <algorithm>  // std::find_if
+#include <cmath>      // std::round
 #include <cctype>     // std::isspace
 #include <locale>     // std::locale
 #include <stdexcept>  // std::invalid_argument
 
 namespace readmpo {
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Common utils
+// ---------------------------------------------------------------------------------------------------------------------
+
+// Print percentage of the process
+void print_process(const double & percent) {
+    std::printf("\r\033[FProcessed %u%%\n", unsigned(std::round(100.f * percent)));
+}
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Utils for HDF5 read
