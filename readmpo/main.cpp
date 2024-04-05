@@ -44,6 +44,13 @@ void wrap_nd_array(py::module & readmpo_package) {
                                    py::format_descriptor<double>::format(), self.ndim(), self.shape(), self.strides());
         }
     );
+    // serialization
+    nd_array_pyclass.def(
+        "serialize",
+        [](NdArray & self, const std::string & fname) { self.serialize(fname); },
+        "Save data of NdArray in to a file.",
+        py::arg("fname")
+    );
 }
 
 // Wrap ``readmpo::XsType`` enum
