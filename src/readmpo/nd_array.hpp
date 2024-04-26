@@ -4,6 +4,7 @@
 
 #include <cstdint>  // std::uint64_t
 #include <string>   // std::string
+#include <utility>  // std::forward, std::move
 #include <vector>   // std::vector
 
 namespace readmpo {
@@ -17,24 +18,26 @@ class NdArray {
     NdArray(void) = default;
     /** @brief Constructor of an zero-filled array from its shape.*/
     NdArray(const std::vector<std::uint64_t> & shape);
+    /** @brief Constructor from buffer protocol.*/
+    NdArray(double * data, std::vector<std::uint64_t> && shape, std::vector<std::uint64_t> && strides);
     /// @}
 
     /// @name Copy and move
     /// @{
     /** @brief Copy constructor.*/
-    NdArray(const NdArray & src) = default;
+    NdArray(const NdArray & src);
     /** @brief Copy assignment.*/
-    NdArray & operator=(const NdArray & src) = default;
+    NdArray & operator=(const NdArray & src);
     /** @brief Move constructor.*/
-    NdArray(NdArray && src) = default;
+    NdArray(NdArray && src);
     /** @brief Move assignment.*/
-    NdArray & operator=(NdArray && src) = default;
+    NdArray & operator=(NdArray && src);
     /// @}
 
     /// @name Attributes
     /// @{
     /** @brief Get pointer to data.*/
-    const double * data(void) const noexcept { return this->data_.data(); }
+    const double * data(void) const noexcept { return this->data_; }
     /** @brief Get number of dimensions.*/
     std::uint64_t ndim(void) const noexcept { return this->shape_.size(); }
     /** @brief Get constant reference to the shape vector.*/
@@ -45,6 +48,10 @@ class NdArray {
 
     /// @name Slicing operator
     /// @{
+    /** @brief Get reference to an element by C-contiguous index.*/
+    double & operator[](std::uint64_t index);
+    /** @brief Get constant reference to an element by C-contiguous index.*/
+    const double & operator[](std::uint64_t index) const;
     /** @brief Get reference to an element by multi-dimensional index.*/
     double & operator[](const std::vector<std::uint64_t> & index);
     /** @brief Get constant reference to an element by multi-dimensional index.*/
@@ -66,12 +73,16 @@ class NdArray {
     /// @name Destructor
     /// @{
     /** @brief Destructor.*/
-    ~NdArray(void) = default;
+    ~NdArray(void);
     /// @}
 
   protected:
     /** @brief Pointer to its underlying data.*/
-    std::vector<double> data_;
+    double * data_ = nullptr;
+    /** @brief Number of elements.*/
+    std::uint64_t size_ = 0;
+    /** @brief De-allocate memory in destructor.*/
+    bool free = true;
     /** @brief Shape vector.*/
     std::vector<std::uint64_t> shape_;
     /** @brief Stride vector.*/

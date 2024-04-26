@@ -97,16 +97,11 @@ int main(int argc, char * argv[]) {
     // construct master MPO and retrieve data
     if (mode == 4) {
         MasterMpo master_mpo(filenames, geometry, energymesh);
-        MpoLib microlib = master_mpo.build_microlib_xs(isotopes, reactions, skipped_dims, static_cast<XsType>(xstype),
-                                                       anisotropy_order);
-        for (std::string & isotope : isotopes) {
-            for (std::string & reaction : reactions) {
-                std::string outfname = stringify(output_folder, "/", isotope, "_", reaction);
-                if ((reaction.find("Diffusion") != std::string::npos) && (anisotropy_order > 0)) {
-                    outfname += stringify(anisotropy_order);
-                }
-                outfname += ".txt";
-                microlib[isotope][reaction].serialize(outfname);
+        MpoLib microlib = master_mpo.build_microlib_xs(isotopes, reactions, skipped_dims, static_cast<XsType>(xstype));
+        for (auto & [isotope, rlib] : microlib) {
+            for (auto & [reaction, lib] : rlib) {
+                std::string outfname = stringify(output_folder, "/", isotope, "_", reaction, ".txt");
+                lib.serialize(outfname);
             }
         }
         return 0;

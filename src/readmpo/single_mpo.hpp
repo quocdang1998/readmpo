@@ -4,12 +4,27 @@
 
 #include <map>      // std::map
 #include <string>   // std::string
-#include <utility>  // std::exchange
+#include <tuple>    // std::tuple
+#include <unordered_set>  // std::unordered_set
+#include <utility>  // std::exchange, std::pair
 #include <vector>   // std::vector
 
 #include "H5Cpp.h"  // H5::H5File, H5::Group
 
 #include "readmpo/nd_array.hpp"  // readmpo::NdArray
+
+/** @brief Hash a pair of integers.*/
+template<>
+struct std::hash<std::pair<std::uint64_t, std::uint64_t>> {
+    std::uint64_t operator()(const std::pair<std::uint64_t, std::uint64_t> & p) const {
+        auto hash1 = std::hash<std::uint64_t>{}(p.first);
+        auto hash2 = std::hash<std::uint64_t>{}(p.second);
+        if (hash1 != hash2) {
+            return hash1 ^ hash2;
+        }
+        return hash1;
+    }
+};
 
 namespace readmpo {
 
@@ -24,6 +39,9 @@ enum class XsType : unsigned int {
     /** @brief Reaction rate.*/
     ReactRate = 3
 };
+
+/** @brief Valid set for Diffusion and Scattering.*/
+using ValidSet = std::tuple<std::uint64_t, std::uint64_t, std::unordered_set<std::pair<std::uint64_t, std::uint64_t>>>;
 
 /** @brief Class representing a single output ID inside an MPO.*/
 class SingleMpo {
@@ -95,21 +113,27 @@ class SingleMpo {
     void construct_global_idx_map(const std::map<std::string, std::vector<double>> & master_pspace);
     /// @}
 
+    /// @name Extra arguments for Diffusion and Scattering
+    /// @{
+    /** @brief Get valid parameter set for Diffusion and Scattering reactions.*/
+    ValidSet get_valid_set(const std::string & isotope);
+    /// @}
+
     /// @name Retrieve data from MPO
     /// @{
     /** @brief Retrieve microscopic homogenized cross section of an isotope and a reaction from MPO.
-     *  @param isotope Isotope to get.
-     *  @param reaction Reaction to get.
-     *  @param skipped_dims Dimensions (0-base indexed) to ignore. Once ignore, elements at any indexes will be rewrite
-     *  at index 0.
-     *  @param output_data Multi-dimensional array to write result to. Its dimensions mut be equals to the number of
-     *  dimensions in the parameter space minus the number of element in the argument ``skipped_dims``.
+     *  @param isotopes List of isotopes to get.
+     *  @param reaction List of reactions to get.
+     *  @param global_skipped_dims Dimensions (0-base indexed) to ignore. Once ignore, elements at any indexes of that
+        dimension will be rewrite at index 0.
+     *  @param global_valid_set Valid set for each isotope.
+     *  @param micro_lib Microscopic library to write data to.
      *  @param type Type of cross section to retrieve.
-     *  @param anisotropy_order Anisotropy order to get for diffusion cross section.
      */
-    void retrieve_micro_xs(const std::string & isotope, const std::string & reaction,
-                           const std::vector<std::uint64_t> & skipped_dims, NdArray & output_data,
-                           XsType type = XsType::Micro, std::uint64_t anisotropy_order = 0);
+    void get_microlib(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
+                      const std::vector<std::uint64_t> & global_skipped_dims,
+                      const std::map<std::string, ValidSet> & global_valid_set,
+                      std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type);
     /** @brief Retrieve concentration from MPO.
      *  @param isotope Isotope to get.
      *  @param burnup_i_dim Index of burnup axis.

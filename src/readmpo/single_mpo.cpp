@@ -1,7 +1,7 @@
 // Copyright 2023 quocdang1998
 #include "readmpo/single_mpo.hpp"
 
-#include <algorithm>  // std::find
+#include <algorithm>  // std::find, std::max
 #include <iostream>   // std::clog
 #include <stdexcept>  // std::invalid_argument
 #include <sstream>    // std::ostringstream
@@ -11,6 +11,41 @@
                                  // readmpo::ls_groups
 
 namespace readmpo {
+
+// Get cross section from type
+static void get_xs(std::uint64_t ngroups, std::vector<std::uint64_t> & output_index, std::int64_t address_xs,
+                   NdArray & output_data, XsType type, const std::vector<float> & cross_sections,
+                   const std::vector<float> & zoneflux, double iso_conc) {
+    for (std::uint64_t i_group = 0; i_group < ngroups; i_group++) {
+        output_index[0] = i_group;
+        if (output_data[output_index] != 0.0) {
+            std::clog << "Overwrite at index " << output_index << "\n";
+        }
+        switch (type) {
+            case XsType::Micro : {
+                output_data[output_index] = cross_sections[address_xs + i_group];
+                break;
+            }
+            case XsType::Macro : {
+                output_data[output_index] = iso_conc * cross_sections[address_xs + i_group];
+                break;
+            }
+            case XsType::Flux : {
+                output_data[output_index] = zoneflux[i_group];
+                break;
+            }
+            case XsType::ReactRate : {
+                output_data[output_index] = zoneflux[i_group] * iso_conc * cross_sections[address_xs + i_group];
+                break;
+            }
+        }
+    }
+}
+
+std::ostream & operator<<(std::ostream & os, const ValidSet & v) {
+    os << std::get<0>(v) << " " << std::get<1>(v);
+    return os;
+}
 
 // Constructor from list of MPO file names, name of homogenized geometry and name of energy mesh
 SingleMpo::SingleMpo(const std::string & mpofile_name, const std::string & geometry, const std::string & energy_mesh) {
@@ -137,49 +172,99 @@ void SingleMpo::construct_global_idx_map(const std::map<std::string, std::vector
     }
 }
 
-// Retrieve microscopic homogenized cross section of an isotope and a reaction from MPO
-void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string & reaction,
-                                  const std::vector<std::uint64_t> & skipped_dims, NdArray & output_data, XsType type,
-                                  std::uint64_t anisotropy_order) {
-    // check dimensionality
-    if (output_data.ndim() - 2 != this->map_global_idx_.size() - skipped_dims.size()) {
-        throw std::invalid_argument("Inconsistance of number of dimension between arguments.\n");
-    }
-    if ((output_data.shape()[0] != this->n_groups) || (output_data.shape()[1] != this->n_zones)) {
-        throw std::invalid_argument("The first 2 dimensions of output data must be a NZONE and NG.\n");
-    }
-    // check if isotope and reaction is in MPO file
-    if (!this->map_isotopes_.contains(isotope)) {
-        std::clog << "This MPO does not contain the isotope " << isotope << "\n";
-        return;
-    }
+// Get valid parameter set for Diffusion and Scattering reactions
+ValidSet SingleMpo::get_valid_set(const std::string & isotope) {
+    ValidSet valid_set;
     std::uint64_t isotope_idx = this->map_isotopes_[isotope];
-    if (!this->map_reactions_.contains(reaction)) {
-        std::clog << "This MPO does not contain the reaction " << reaction << "\n";
-        return;
-    }
-    if (reaction.find("Scattering") != std::string::npos) {
-        throw std::logic_error("Get Scattering cross section not implemented.\n");
-    }
-    std::uint64_t reaction_idx = this->map_reactions_[reaction];
-    // if anisotropy order provided, reaction must be diffusion
-    if ((anisotropy_order != 0) && (reaction.find("Diffusion") == std::string::npos)) {
-        throw std::invalid_argument("Anisotropy order can only be provided with Diffusion reaction.\n");
-    }
-    // get addrxs (address of cross section)
     auto [addrxs, addrxs_shape] = get_dset<int>(this->output_, "info/ADDRXS");
+    auto [transprofile, transprf_shape] = get_dset<int>(this->output_, "info/TRANSPROFILE");
+    // initialize index
+    std::vector<std::uint64_t> ndiffusion_idx = {0, isotope_idx, this->map_reactions_.size()};
+    std::vector<std::uint64_t> ntransfer_idx = {0, isotope_idx, this->map_reactions_.size() + 1};
+    std::vector<std::uint64_t> scaterring_adrr_idx = {0, isotope_idx, this->map_reactions_.size() + 2};
     // loop over each statept
     std::vector<std::string> statepts = ls_groups(this->output_, "statept_");
-    std::vector<std::uint64_t> output_index(output_data.ndim());
-    std::vector<std::uint64_t> cross_section_idx = {0, isotope_idx, reaction_idx};
-    std::vector<std::uint64_t> anisotropy_idx = {0, isotope_idx, this->map_reactions_.size()};
+    for (std::string & statept_name : statepts) {
+        // get statept
+        H5::Group statept = this->output_->openGroup(statept_name.c_str());
+        // loop over each zone
+        for (std::uint64_t i_zone = 0; i_zone < this->n_zones; i_zone++) {
+            // open zone
+            std::string zone_name = stringify("zone_", i_zone);
+            H5::Group zone = statept.openGroup(zone_name.c_str());
+            // get addrzx
+            auto [addrzx_data, _naddrzx] = get_dset<int>(&zone, "ADDRZX");
+            std::uint64_t addrzx = addrzx_data[0];
+            // set zone index for each index vector
+            ndiffusion_idx[0] = addrzx;
+            ntransfer_idx[0] = addrzx;
+            scaterring_adrr_idx[0] = addrzx;
+            // get max anisotropy order for Diffusion and Scattering
+            int diffusion_max_order = addrxs[ndim_to_c_idx(ndiffusion_idx, addrxs_shape)];
+            int scattering_max_order = addrxs[ndim_to_c_idx(ntransfer_idx, addrxs_shape)];
+            if (diffusion_max_order < 0 && scattering_max_order < 0) {
+                continue;  // skip because the isotope do not present in this zone
+            }
+            std::get<0>(valid_set) = std::max(diffusion_max_order, static_cast<int>(std::get<0>(valid_set)));
+            std::get<1>(valid_set) = std::max(scattering_max_order, static_cast<int>(std::get<1>(valid_set)));
+            // get first arrival group and adr per arrival group start from TRANSPROFILE
+            std::uint64_t index_in_tf = addrxs[ndim_to_c_idx(scaterring_adrr_idx, addrxs_shape)];
+            std::vector<int> trans_fag(transprofile.data() + index_in_tf,
+                                       transprofile.data() + index_in_tf + this->n_groups);
+            std::vector<int> trans_adr(transprofile.data() + index_in_tf + this->n_groups,
+                                       transprofile.data() + index_in_tf + 2 * this->n_groups + 1);
+            // loop for each departure group and arrival group
+            for (std::uint64_t departure_group_idx = 0; departure_group_idx < this->n_groups; departure_group_idx++) {
+                for (std::uint64_t arrival_group_idx = 0; arrival_group_idx < this->n_groups; arrival_group_idx++) {
+                    int scale = trans_adr[departure_group_idx] + static_cast<int>(arrival_group_idx) -
+                                trans_fag[departure_group_idx];
+                    if ((trans_adr[departure_group_idx] <= scale) && (scale < trans_adr[departure_group_idx + 1])) {
+                        std::get<2>(valid_set).insert(std::make_pair(departure_group_idx, arrival_group_idx));
+                    }
+                }
+            }
+        }
+    }
+    return valid_set;
+}
+
+// Retrieve microscopic homogenized cross section of an isotope and a reaction from MPO
+void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
+                      const std::vector<std::uint64_t> & global_skipped_dims,
+                      const std::map<std::string, ValidSet> & global_valid_set,
+                      std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type) {
+    // check for isotope and reaction
+    for (const std::string & isotope : isotopes) {
+        for (const std::string & reaction : reactions) {
+            // check if isotope and reaction is in MPO file
+            if (!this->map_isotopes_.contains(isotope)) {
+                std::clog << "This MPO does not contain the isotope " << isotope << ". No isotope will be retrived\n";
+                return;
+            }
+            if (!this->map_reactions_.contains(reaction)) {
+                std::clog << "This MPO does not contain the reaction " << reaction << ". \n";
+                return;
+            }
+        }
+    }
+    // get addrxs (address of cross section) and transprofile
+    auto [addrxs, addrxs_shape] = get_dset<int>(this->output_, "info/ADDRXS");
+    auto [transprofile, transprf_shape] = get_dset<int>(this->output_, "info/TRANSPROFILE");
+    // initialize memory for index
+    std::vector<std::uint64_t> output_index(this->map_global_idx_.size() - global_skipped_dims.size() + 2);
+    std::vector<std::uint64_t> cross_section_idx = {0, 0, 0};
+    std::vector<std::uint64_t> ndiffusion_idx = {0, 0, this->map_reactions_.size()};
+    std::vector<std::uint64_t> ntransfer_idx = {0, 0, this->map_reactions_.size() + 1};
+    std::vector<std::uint64_t> scaterring_adrr_idx = {0, 0, this->map_reactions_.size() + 2};
+    // loop on each statepoint
+    std::vector<std::string> statepts = ls_groups(this->output_, "statept_");
     for (std::string & statept_name : statepts) {
         // get statept
         H5::Group statept = this->output_->openGroup(statept_name.c_str());
         // get global index inside the output array
         auto [local_idx, total_ndim] = get_dset<int>(&statept, "PARAMVALUEORD");
         for (std::uint64_t idim_global = 0, write_idim = 2; idim_global < total_ndim[0]; idim_global++) {
-            if (std::find(skipped_dims.begin(), skipped_dims.end(), idim_global) != skipped_dims.end()) {
+            if (std::find(global_skipped_dims.begin(), global_skipped_dims.end(), idim_global) != global_skipped_dims.end()) {
                 continue;
             }
             std::uint64_t idim_local = this->map_local_idim_[idim_global];
@@ -194,52 +279,79 @@ void SingleMpo::retrieve_micro_xs(const std::string & isotope, const std::string
             output_index[1] = i_zone;
             std::string zone_name = stringify("zone_", i_zone);
             H5::Group zone = statept.openGroup(zone_name.c_str());
-            // get isotope concentration
+            // get concentration, flux, addrzx and cross sections of all isotopes and reactions
             auto [concentrations, _n_concs] = get_dset<float>(&zone, "CONCENTRATION");
-            double iso_conc = concentrations[isotope_idx];
-            // get zone flux
             auto [zoneflux, _ng] = get_dset<float>(&zone, "ZONEFLUX");
-            // get addrzx (address zone in cross section array)
             auto [addrzx_data, _naddrzx] = get_dset<int>(&zone, "ADDRZX");
+            auto [cross_sections, cross_section_shape] = get_dset<float>(&zone, "CROSSECTION");
+            // set zone index
             std::uint64_t addrzx = addrzx_data[0];
             cross_section_idx[0] = addrzx;
-            anisotropy_idx[0] = addrzx;
-            // open cross section
-            auto [cross_sections, cross_section_shape] = get_dset<float>(&zone, "CROSSECTION");
-            std::int64_t address_xs = addrxs[ndim_to_c_idx(cross_section_idx, addrxs_shape)];
-            if (address_xs < 0) {
-                std::clog << "Cross section not found for isotope " << isotope << " reaction " << reaction
-                          << " state point " << statept_name << " in zone " << i_zone << "\n";
-                continue;
-            }
-            // check for anisotropy order
-            std::uint64_t max_anisotropy_order = addrxs[ndim_to_c_idx(anisotropy_idx, addrxs_shape)];
-            if (anisotropy_order >= max_anisotropy_order) {
-                throw std::invalid_argument("Anisotropy order bigger than max anisotropy order.\n");
-            }
-            address_xs += anisotropy_order * this->n_groups;
-            // write cross section to data for each group
-            for (std::uint64_t i_group = 0; i_group < this->n_groups; i_group++) {
-                output_index[0] = i_group;
-                if (output_data[output_index] != 0.0) {
-                    std::clog << "Overwrite at index " << output_index << "\n";
+            ndiffusion_idx[0] = addrzx;
+            ntransfer_idx[0] = addrzx;
+            scaterring_adrr_idx[0] = addrzx;
+            // retrive for each isotope
+            for (const std::string & isotope : isotopes) {
+                // check if isotope present
+                if (!this->map_isotopes_.contains(isotope)) {
+                    std::clog << "This MPO does not contain the isotope " << isotope << "\n";
+                    continue;
                 }
-                switch (type) {
-                    case XsType::Micro : {
-                        output_data[output_index] = cross_sections[address_xs + i_group];
-                        break;
+                // set isotope index
+                std::uint64_t isotope_idx = this->map_isotopes_[isotope];
+                cross_section_idx[1] = isotope_idx;
+                ndiffusion_idx[1] = isotope_idx;
+                ntransfer_idx[1] = isotope_idx;
+                scaterring_adrr_idx[1] = isotope_idx;
+                // get isotope concentration
+                double iso_conc = concentrations[isotope_idx];
+                // get first arrival group and adr per arrival group start from TRANSPROFILE
+                std::uint64_t index_in_tf = addrxs[ndim_to_c_idx(scaterring_adrr_idx, addrxs_shape)];
+                std::vector<int> trans_fag(transprofile.data() + index_in_tf,
+                                           transprofile.data() + index_in_tf + this->n_groups);
+                std::vector<int> trans_adr(transprofile.data() + index_in_tf + this->n_groups,
+                                           transprofile.data() + index_in_tf + 2 * this->n_groups + 1);
+                // get valid set
+                const ValidSet & valid_set = global_valid_set.at(isotope);
+                // retrive for each reaction
+                for (const std::string & reaction : reactions) {
+                    // set reaction index
+                    std::uint64_t reaction_idx = this->map_reactions_[reaction];
+                    cross_section_idx[2] = reaction_idx;
+                    // calculate index in the cross section array
+                    std::int64_t address_xs = addrxs[ndim_to_c_idx(cross_section_idx, addrxs_shape)];
+                    if (address_xs < 0) {
+                        std::clog << "Cross section not found for isotope " << isotope << " reaction " << reaction
+                                << " state point " << statept_name << " in zone " << i_zone << "\n";
+                        continue;
                     }
-                    case XsType::Macro : {
-                        output_data[output_index] = iso_conc * cross_sections[address_xs + i_group];
-                        break;
-                    }
-                    case XsType::Flux : {
-                        output_data[output_index] = zoneflux[i_group];
-                        break;
-                    }
-                    case XsType::ReactRate : {
-                        output_data[output_index] = zoneflux[i_group] * iso_conc * cross_sections[address_xs + i_group];
-                        break;
+                    // get cross section
+                    if (reaction.compare("Diffusion") == 0) {
+                    // get cross section for Diffusion
+                        std::uint64_t max_anisop = std::get<0>(valid_set);
+                        for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
+                            NdArray & output_data = micro_lib[isotope][stringify(reaction, anisop)];
+                            std::int64_t adr_xs = address_xs + anisop * this->n_groups;
+                            get_xs(this->n_groups, output_index, adr_xs, output_data, type, cross_sections, zoneflux,
+                                   iso_conc);
+                        }
+                    } else if (reaction.compare("Scattering") == 0) {
+                        // get cross section for Scattering
+                        std::uint64_t max_anisop = std::get<1>(valid_set);
+                        for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
+                            for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(valid_set)) {
+                                NdArray & output_data = micro_lib[isotope][stringify(reaction, anisop, '_', p.first, '-', p.second)];
+                                int scale = trans_adr[p.first] + static_cast<int>(p.second) - trans_fag[p.first];
+                                std::int64_t adr_xs = address_xs + anisop * this->n_groups + scale;
+                                get_xs(this->n_groups, output_index, adr_xs, output_data, type, cross_sections, zoneflux,
+                                       iso_conc);
+                            }
+                        }
+                    } else {
+                        // get cross section for others reaction
+                        NdArray & output_data = micro_lib[isotope][reaction];
+                        get_xs(this->n_groups, output_index, address_xs, output_data, type, cross_sections, zoneflux,
+                                iso_conc);
                     }
                 }
             }

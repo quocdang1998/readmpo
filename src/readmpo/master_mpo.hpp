@@ -54,11 +54,9 @@ class MasterMpo {
      *  @param reactions List of reactions.
      *  @param skipped_dims List of lowercased skipped dimension.
      *  @param type Cross section type to get.
-     *  @param anisotropy_order Anisotropy order to get for diffusion cross section.
      */
     MpoLib build_microlib_xs(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
-                             const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro,
-                             std::uint64_t anisotropy_order = 0);
+                             const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro);
     /** @brief Retrieve concentration of some isotopes at each value of burnup in each zone.
      *  @param isotopes List of isotopes.
      *  @param burnup_name Name of parameter representing burnup.
@@ -84,6 +82,8 @@ class MasterMpo {
     std::vector<std::string> avail_isotopes_;
     /** @brief Possible reactions.*/
     std::vector<std::string> avail_reactions_;
+    /** @brief Valid configuration for each isotope.*/
+    std::map<std::string, ValidSet> valid_set_;
 };
 
 }  // namespace readmpo

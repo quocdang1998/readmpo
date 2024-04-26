@@ -8,6 +8,8 @@
 #include <pybind11/stl.h>
 #include <pybind11/numpy.h>
 
+#include <iostream>
+
 namespace py = pybind11;
 
 namespace readmpo {
@@ -24,18 +26,19 @@ void wrap_nd_array(py::module & readmpo_package) {
     );
     // constructors
     nd_array_pyclass.def(
-        py::init([]() { return new NdArray(); }),
-        "Default constructor."
-    );
-    nd_array_pyclass.def(
         py::init(
-            [](py::list & shape) {
-                std::vector<std::uint64_t> shape_cpp = shape.cast<std::vector<std::uint64_t>>();
-                return new NdArray(shape_cpp);
+            [](py::buffer buffer) {
+                py::buffer_info info = buffer.request();
+                if (info.format != py::format_descriptor<double>::format()) {
+                    throw std::runtime_error("Incompatible format: expected a double array.");
+                }
+                return new NdArray(reinterpret_cast<double *>(info.ptr),
+                                   std::vector<std::uint64_t>(info.shape.begin(), info.shape.end()),
+                                   std::vector<std::uint64_t>(info.strides.begin(), info.strides.end()));
             }
         ),
-        "Construct zero-filled C-contiguous array from dimension vector.",
-        py::arg("shape")
+        "Constructor from buffer interface.",
+        py::arg("buffer")
     );
     // conversion to Numpy
     nd_array_pyclass.def_buffer(
@@ -158,26 +161,60 @@ void wrap_master_mpo(py::module & readmpo_package) {
     master_mpo_pyclass.def(
         "build_microlib_xs",
         [](MasterMpo & self, py::list & isotopes_list, py::list & reactions_list, py::list & skipped_dims_list,
-           XsType type, std::uint64_t anisotropy_order) {
+           XsType type) {
+            // get microlib
             std::vector<std::string> isotopes = isotopes_list.cast<std::vector<std::string>>();
             std::vector<std::string> reactions = reactions_list.cast<std::vector<std::string>>();
             std::vector<std::string> skipped_dims = skipped_dims_list.cast<std::vector<std::string>>();
-            auto microlib = self.build_microlib_xs(isotopes, reactions, skipped_dims, type, anisotropy_order);
-            py::dict result = py::cast(microlib);
+            auto microlib = self.build_microlib_xs(isotopes, reactions, skipped_dims, type);
+            // convert result to Python dictionary
+            py::dict result;
+            for (auto & [isotope, rlib] : microlib) {
+                result[isotope.c_str()] = py::dict();
+                for (auto & [reaction, lib] : rlib) {
+                    result[isotope.c_str()][reaction.c_str()] = new NdArray(std::move(microlib[isotope][reaction]));
+                }
+            }
             return result;
         },
-        "Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions in all MPO files.",
-        py::arg("isotopes"), py::arg("reactions"), py::arg("skipped_dims"), py::arg("type") = XsType::Micro, py::arg("anisotropy_order") = 0
+        R"(
+        Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions in all MPO
+        files.
+
+        Parameters
+        ----------
+        isotopes : List[str]
+            List of isotopes.
+        reactions : List[str]
+            List of reactions.
+        skipped_dims : List[str]
+            List of lowercased skipped dimension.
+        type : readmpo.XsType
+            Cross section type to get.)",
+        py::arg("isotopes"), py::arg("reactions"), py::arg("skipped_dims"), py::arg("type") = XsType::Micro
     );
     master_mpo_pyclass.def(
         "get_concentration",
         [](MasterMpo & self, py::list & isotopes_list, const std::string & burnup_name) {
             std::vector<std::string> isotopes = isotopes_list.cast<std::vector<std::string>>();
             auto conclib = self.get_concentration(isotopes, burnup_name);
-            py::dict result = py::cast(conclib);
+            py::dict result;
+            for (auto & [isotope, conc] : conclib) {
+                result[isotope.c_str()] = new NdArray(std::move(conc));
+            }
             return result;
         },
-        "Retrieve concentration of some isotopes at each value of burnup in each zone.",
+        R"(
+        Retrieve concentration of some isotopes at each value of burnup in each zone.
+
+        If the argument ``burnup_name`` is not the PARAMNAME of the burnup dimension in MPO, the behavior is undefined.
+
+        Parameters
+        ----------
+        isotopes : List[str]
+            List of isotopes.
+        burnup_name : str
+            Name of burnup parameter.)",
         py::arg("isotopes"), py::arg("burnup_name") = "burnup"
     );
 }

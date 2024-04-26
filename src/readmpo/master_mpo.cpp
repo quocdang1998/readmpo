@@ -3,6 +3,7 @@
 
 #include <algorithm>  // std::copy, std::find, std::set_union, std::sort, std::unique
 #include <iostream>   // std::cout
+#include <iomanip>
 #include <iterator>   // std::back_inserter
 #include <set>        // std::set
 #include <utility>    // std::move
@@ -79,13 +80,33 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
     }
     std::copy(set_reactions.begin(), set_reactions.end(), std::back_inserter(this->avail_reactions_));
     std::cout << "Avail reactions (" << this->avail_reactions_.size() << "): " << this->avail_reactions_ << "\n";
+    // get list of valid set for each isotope
+    std::cout << "Anisotropy order for each isotope(\n";
+    std::cout << "isotope              max-diffsion-anisop-order max-scattering-anisop-order valid-in-out-idx-group\n";
+    for (std::string & isotope : this->avail_isotopes_) {
+        this->valid_set_[isotope] = ValidSet();
+        ValidSet & iso_validset = this->valid_set_[isotope];
+        std::cout << std::setw(20) << isotope << " ";
+        for (SingleMpo & mpofile : this->mpofiles_) {
+            ValidSet mpo_validset = mpofile.get_valid_set(isotope);
+            std::get<0>(iso_validset) = std::max(std::get<0>(iso_validset), std::get<0>(mpo_validset));
+            std::get<1>(iso_validset) = std::max(std::get<1>(iso_validset), std::get<1>(mpo_validset));
+            std::get<2>(iso_validset).merge(std::get<2>(mpo_validset));
+        }
+        std::cout << std::setw(25) << std::get<0>(iso_validset) << " "
+                  << std::setw(27) << std::get<1>(iso_validset) << " ";
+        for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(iso_validset)) {
+            std::cout << "(" << p.first << " " << p.second << "), ";
+        }
+        std::cout << "\n";
+    }
+    std::cout << ")\n";
 }
 
 // Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions
 MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
                                     const std::vector<std::string> & reactions,
-                                    const std::vector<std::string> & skipped_dims, XsType type,
-                                    std::uint64_t anisotropy_order) {
+                                    const std::vector<std::string> & skipped_dims, XsType type) {
     // check isotope and reaction
     for (const std::string & isotope : isotopes) {
         auto it = std::find(this->avail_isotopes_.begin(), this->avail_isotopes_.end(), isotope);
@@ -118,23 +139,29 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
     MpoLib micro_lib;
     for (const std::string & isotope : isotopes) {
         for (const std::string & reaction : reactions) {
-            micro_lib[isotope][reaction] = NdArray(shape_lib);
+            if (reaction.compare("Diffusion") == 0) {
+                std::uint64_t max_anisop = std::get<0>(this->valid_set_[isotope]);
+                for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
+                    micro_lib[isotope][stringify(reaction, anisop)] = NdArray(shape_lib);
+                }
+            }
+            else if (reaction.compare("Scattering") == 0) {
+                std::uint64_t max_anisop = std::get<1>(this->valid_set_[isotope]);
+                for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
+                    for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(this->valid_set_[isotope])) {
+                        micro_lib[isotope][stringify(reaction, anisop, '_', p.first, '-', p.second)] = NdArray(shape_lib);
+                    }
+                }
+            } else {
+                micro_lib[isotope][reaction] = NdArray(shape_lib);
+            }
         }
     }
     // retrieve data from each MPO file
     std::printf("\n");
     for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
-        SingleMpo & mpofile = this->mpofiles_[i_fmpo];
-        for (const std::string & isotope : isotopes) {
-            for (const std::string & reaction : reactions) {
-                std::uint64_t anisop = 0;
-                if (reaction.find("Diffusion") != std::string::npos) {
-                    anisop = anisotropy_order;
-                }
-                mpofile.retrieve_micro_xs(isotope, reaction, global_skipped_idims, micro_lib[isotope][reaction], type,
-                                          anisop);
-            }
-        }
+        this->mpofiles_[i_fmpo].get_microlib(isotopes, reactions, global_skipped_idims, this->valid_set_,
+                                             micro_lib, type);
         print_process(static_cast<double>(i_fmpo) / static_cast<double>(this->mpofiles_.size()));
     }
     return micro_lib;
