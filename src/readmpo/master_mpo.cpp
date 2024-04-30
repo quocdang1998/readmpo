@@ -67,7 +67,7 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
     // get list of available isotopes
     std::set<std::string> set_isotopes;
     for (SingleMpo & mpofile : this->mpofiles_) {
-        std::vector<std::string> mpo_isotopes = mpofile.get_isotopes();
+        std::set<std::string> mpo_isotopes = mpofile.get_isotopes();
         set_isotopes.insert(mpo_isotopes.begin(), mpo_isotopes.end());
     }
     std::copy(set_isotopes.begin(), set_isotopes.end(), std::back_inserter(this->avail_isotopes_));
@@ -85,14 +85,12 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
     std::cout << "isotope              max-diffsion-anisop-order max-scattering-anisop-order valid-in-out-idx-group\n";
     for (std::string & isotope : this->avail_isotopes_) {
         this->valid_set_[isotope] = ValidSet();
-        ValidSet & iso_validset = this->valid_set_[isotope];
+    }
+    for (SingleMpo & mpofile : this->mpofiles_) {
+        mpofile.get_valid_set(this->valid_set_);
+    }
+    for (auto & [isotope, iso_validset] : this->valid_set_) {
         std::cout << std::setw(20) << isotope << " ";
-        for (SingleMpo & mpofile : this->mpofiles_) {
-            ValidSet mpo_validset = mpofile.get_valid_set(isotope);
-            std::get<0>(iso_validset) = std::max(std::get<0>(iso_validset), std::get<0>(mpo_validset));
-            std::get<1>(iso_validset) = std::max(std::get<1>(iso_validset), std::get<1>(mpo_validset));
-            std::get<2>(iso_validset).merge(std::get<2>(mpo_validset));
-        }
         std::cout << std::setw(25) << std::get<0>(iso_validset) << " "
                   << std::setw(27) << std::get<1>(iso_validset) << " ";
         for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(iso_validset)) {
@@ -186,9 +184,7 @@ ConcentrationLib MasterMpo::get_concentration(const std::vector<std::string> & i
     std::uint64_t bu_idx = std::distance(this->master_pspace_.begin(), this->master_pspace_.find(burnup_name));
     for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
         SingleMpo & mpofile = this->mpofiles_[i_fmpo];
-        for (const std::string & isotope : isotopes) {
-            mpofile.get_concentration(isotope, bu_idx, conc_lib[isotope]);
-        }
+        mpofile.get_concentration(isotopes, bu_idx, conc_lib);
     }
     return conc_lib;
 }

@@ -22,8 +22,6 @@ Options:
         -r, --reaction: Name of reaction (multiple calls allowed).
         -o, --output: Name of output folder. Default: ".".
         -sk, --skip-dims: Name (in lowercase) of parameter that should be ignored (multiple calls allowed).
-        -ao, --anisotropy-order: Anisotropy order to get for "Diffusion" reaction (unaffected for others reactions).
-                                 Default value: 0.
         -xs, --xs-type: Type of cross section. Possible value:
             0: micro (default)
             1: macro
@@ -64,9 +62,6 @@ int main(int argc, char * argv[]) {
             mode |= 4;
         } else if (!argument.compare("-sk") || !argument.compare("--skip-dims")) {
             skipped_dims.push_back(std::string(argv[++i]));
-            mode |= 4;
-        } else if (!argument.compare("-ao") || !argument.compare("--anisotropy-order")) {
-            anisotropy_order = std::atol(argv[++i]);
             mode |= 4;
         } else if (!argument.compare("-xs") || !argument.compare("--xs-type")) {
             xstype = std::atoi(argv[++i]);

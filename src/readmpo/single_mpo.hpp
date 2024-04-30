@@ -5,6 +5,7 @@
 #include <map>      // std::map
 #include <string>   // std::string
 #include <tuple>    // std::tuple
+#include <set>      // std::set
 #include <unordered_set>  // std::unordered_set
 #include <utility>  // std::exchange, std::pair
 #include <vector>   // std::vector
@@ -85,7 +86,7 @@ class SingleMpo {
         this->map_global_idx_ = std::exchange(src.map_global_idx_, std::vector<std::vector<std::uint64_t>>());
         this->map_global_idim_ = std::exchange(src.map_global_idim_, std::vector<std::uint64_t>());
         this->map_local_idim_ = std::exchange(src.map_local_idim_, std::vector<std::uint64_t>());
-        this->map_isotopes_ = std::exchange(src.map_isotopes_, std::map<std::string, std::uint64_t>());
+        this->map_isotopes_ = std::exchange(src.map_isotopes_, std::vector<std::map<std::string, std::uint64_t>>());
         this->map_reactions_ = std::exchange(src.map_reactions_, std::map<std::string, std::uint64_t>());
         return *this;
     }
@@ -98,7 +99,7 @@ class SingleMpo {
     /** @brief Get lowercased parameter names.*/
     std::vector<std::string> get_param_names(void);
     /** @brief Get list of isotopes in MPO.*/
-    std::vector<std::string> get_isotopes(void);
+    std::set<std::string> get_isotopes(void);
     /** @brief Get list of reactions in MPO.*/
     std::vector<std::string> get_reactions(void);
     /** @brief Number of zones in the geometry.*/
@@ -116,7 +117,7 @@ class SingleMpo {
     /// @name Extra arguments for Diffusion and Scattering
     /// @{
     /** @brief Get valid parameter set for Diffusion and Scattering reactions.*/
-    ValidSet get_valid_set(const std::string & isotope);
+    void get_valid_set(std::map<std::string, ValidSet> & global_valid_set);
     /// @}
 
     /// @name Retrieve data from MPO
@@ -135,11 +136,12 @@ class SingleMpo {
                       const std::map<std::string, ValidSet> & global_valid_set,
                       std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type);
     /** @brief Retrieve concentration from MPO.
-     *  @param isotope Isotope to get.
+     *  @param isotopes Isotope to get.
      *  @param burnup_i_dim Index of burnup axis.
      *  @param output Output array to write result to.
      */
-    void get_concentration(const std::string & isotope, std::uint64_t burnup_i_dim, NdArray & output);
+    void get_concentration(const std::vector<std::string> & isotopes, std::uint64_t burnup_i_dim,
+                           std::map<std::string, NdArray> & output);
     /// @}
 
     /// @name Representation
@@ -171,7 +173,7 @@ class SingleMpo {
     /** @brief Map from global i_dim to local i_dim.*/
     std::vector<std::uint64_t> map_local_idim_;
     /** @brief Map from isotope name to its index.*/
-    std::map<std::string, std::uint64_t> map_isotopes_;
+    std::vector<std::map<std::string, std::uint64_t>> map_isotopes_;
     /** @brief Map from reaction name to its index.*/
     std::map<std::string, std::uint64_t> map_reactions_;
 };
