@@ -134,7 +134,8 @@ class SingleMpo {
     void get_microlib(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
                       const std::vector<std::uint64_t> & global_skipped_dims,
                       const std::map<std::string, ValidSet> & global_valid_set,
-                      std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type);
+                      std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type,
+                      std::uint64_t max_anisop_order);
     /** @brief Retrieve concentration from MPO.
      *  @param isotopes Isotope to get.
      *  @param burnup_i_dim Index of burnup axis.

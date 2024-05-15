@@ -161,12 +161,12 @@ void wrap_master_mpo(py::module & readmpo_package) {
     master_mpo_pyclass.def(
         "build_microlib_xs",
         [](MasterMpo & self, py::list & isotopes_list, py::list & reactions_list, py::list & skipped_dims_list,
-           XsType type) {
+           XsType type, std::uint64_t max_anisop_order) {
             // get microlib
             std::vector<std::string> isotopes = isotopes_list.cast<std::vector<std::string>>();
             std::vector<std::string> reactions = reactions_list.cast<std::vector<std::string>>();
             std::vector<std::string> skipped_dims = skipped_dims_list.cast<std::vector<std::string>>();
-            auto microlib = self.build_microlib_xs(isotopes, reactions, skipped_dims, type);
+            auto microlib = self.build_microlib_xs(isotopes, reactions, skipped_dims, type, max_anisop_order);
             // convert result to Python dictionary
             py::dict result;
             for (auto & [isotope, rlib] : microlib) {
@@ -190,8 +190,12 @@ void wrap_master_mpo(py::module & readmpo_package) {
         skipped_dims : List[str]
             List of lowercased skipped dimension.
         type : readmpo.XsType
-            Cross section type to get.)",
-        py::arg("isotopes"), py::arg("reactions"), py::arg("skipped_dims"), py::arg("type") = XsType::Micro
+            Cross section type to get.
+        max_anisop_order : int, default=1
+            Max anisotropy order to get for Diffusion and Scattering cross section. If the provided value is larger than
+            the max anisotropy order recovered from MPO file, it will be clamped.)",
+        py::arg("isotopes"), py::arg("reactions"), py::arg("skipped_dims"), py::arg("type") = XsType::Micro,
+        py::arg("max_anisop_order") = 1
     );
     master_mpo_pyclass.def(
         "get_concentration",

@@ -193,6 +193,7 @@ void SingleMpo::get_valid_set(std::map<std::string, ValidSet> & global_valid_set
     std::vector<std::string> statepts = ls_groups(this->output_, "statept_");
     for (std::string & statept_name : statepts) {
         // get statept
+        std::clog << statept_name << "\n";
         H5::Group statept = this->output_->openGroup(statept_name.c_str());
         // loop over each zone
         for (std::uint64_t i_zone = 0; i_zone < this->n_zones; i_zone++) {
@@ -252,7 +253,8 @@ void SingleMpo::get_valid_set(std::map<std::string, ValidSet> & global_valid_set
 void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
                       const std::vector<std::uint64_t> & global_skipped_dims,
                       const std::map<std::string, ValidSet> & global_valid_set,
-                      std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type) {
+                      std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type,
+                      std::uint64_t max_anisop_order) {
     // check for isotope and reaction
     std::set<std::string> mpo_isotopes = this->get_isotopes();
     for (const std::string & isotope : isotopes) {
@@ -281,6 +283,7 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
     std::vector<std::string> statepts = ls_groups(this->output_, "statept_");
     for (std::string & statept_name : statepts) {
         // get statept
+        std::clog << statept_name << "\n";
         H5::Group statept = this->output_->openGroup(statept_name.c_str());
         // get global index inside the output array
         auto [local_idx, total_ndim] = get_dset<int>(&statept, "PARAMVALUEORD");
@@ -343,14 +346,14 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
                     // calculate index in the cross section array
                     std::int64_t address_xs = addrxs[ndim_to_c_idx(cross_section_idx, addrxs_shape)];
                     if (address_xs < 0) {
-                        std::clog << "Cross section not found for isotope " << isotope << " reaction " << reaction
-                                << " state point " << statept_name << " in zone " << i_zone << "\n";
+                        // std::clog << "Cross section not found for isotope " << isotope << " reaction " << reaction
+                        //         << " state point " << statept_name << " in zone " << i_zone << "\n";
                         continue;
                     }
                     // get cross section
                     if (reaction.compare("Diffusion") == 0) {
                     // get cross section for Diffusion
-                        std::uint64_t max_anisop = std::get<0>(valid_set);
+                        std::uint64_t max_anisop = std::min(std::get<0>(valid_set), max_anisop_order);
                         for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
                             NdArray & output_data = micro_lib[isotope][stringify(reaction, anisop)];
                             std::int64_t adr_xs = address_xs + anisop * this->n_groups;
@@ -359,7 +362,7 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
                         }
                     } else if (reaction.compare("Scattering") == 0) {
                         // get cross section for Scattering
-                        std::uint64_t max_anisop = std::get<1>(valid_set);
+                        std::uint64_t max_anisop = std::min(std::get<1>(valid_set), max_anisop_order);
                         for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
                             for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(valid_set)) {
                                 NdArray & output_data =

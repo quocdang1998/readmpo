@@ -104,7 +104,8 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
 // Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions
 MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
                                     const std::vector<std::string> & reactions,
-                                    const std::vector<std::string> & skipped_dims, XsType type) {
+                                    const std::vector<std::string> & skipped_dims, XsType type,
+                                    std::uint64_t max_anisop_order) {
     // check isotope and reaction
     for (const std::string & isotope : isotopes) {
         auto it = std::find(this->avail_isotopes_.begin(), this->avail_isotopes_.end(), isotope);
@@ -138,13 +139,13 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
     for (const std::string & isotope : isotopes) {
         for (const std::string & reaction : reactions) {
             if (reaction.compare("Diffusion") == 0) {
-                std::uint64_t max_anisop = std::get<0>(this->valid_set_[isotope]);
+                std::uint64_t max_anisop = std::min(std::get<0>(this->valid_set_[isotope]), max_anisop_order);
                 for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
                     micro_lib[isotope][stringify(reaction, anisop)] = NdArray(shape_lib);
                 }
             }
             else if (reaction.compare("Scattering") == 0) {
-                std::uint64_t max_anisop = std::get<1>(this->valid_set_[isotope]);
+                std::uint64_t max_anisop = std::min(std::get<1>(this->valid_set_[isotope]), max_anisop_order);
                 for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
                     for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(this->valid_set_[isotope])) {
                         micro_lib[isotope][stringify(reaction, anisop, '_', p.first, '-', p.second)] = NdArray(shape_lib);
@@ -159,7 +160,7 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
     std::printf("\n");
     for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
         this->mpofiles_[i_fmpo].get_microlib(isotopes, reactions, global_skipped_idims, this->valid_set_,
-                                             micro_lib, type);
+                                             micro_lib, type, max_anisop_order);
         print_process(static_cast<double>(i_fmpo) / static_cast<double>(this->mpofiles_.size()));
     }
     return micro_lib;

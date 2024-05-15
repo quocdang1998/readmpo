@@ -25,6 +25,7 @@ ext_options["library_dirs"] += H5_LIBDIRS
 if sys.platform == "linux":
     ext_options["extra_compile_args"] = ["-std=c++20"]
     ext_options["depends"] = ["readmpo/main.cpp", "build/libreadmpo.a"]
+    ext_options["runtime_library_dirs"] = H5_LIBDIRS
 elif sys.platform == "win32":
     ext_options["extra_compile_args"] = ["-std:c++20"]
     ext_options["depends"] = ["readmpo/main.cpp", "build/readmpo.lib"]

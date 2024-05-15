@@ -56,7 +56,8 @@ class MasterMpo {
      *  @param type Cross section type to get.
      */
     MpoLib build_microlib_xs(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
-                             const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro);
+                             const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro,
+                             std::uint64_t max_anisop_order = 1);
     /** @brief Retrieve concentration of some isotopes at each value of burnup in each zone.
      *  @param isotopes List of isotopes.
      *  @param burnup_name Name of parameter representing burnup.
