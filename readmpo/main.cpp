@@ -161,12 +161,12 @@ void wrap_master_mpo(py::module & readmpo_package) {
     master_mpo_pyclass.def(
         "build_microlib_xs",
         [](MasterMpo & self, py::list & isotopes_list, py::list & reactions_list, py::list & skipped_dims_list,
-           XsType type, std::uint64_t max_anisop_order) {
+           XsType type, std::uint64_t max_anisop_order, const std::string & logfile) {
             // get microlib
             std::vector<std::string> isotopes = isotopes_list.cast<std::vector<std::string>>();
             std::vector<std::string> reactions = reactions_list.cast<std::vector<std::string>>();
             std::vector<std::string> skipped_dims = skipped_dims_list.cast<std::vector<std::string>>();
-            auto microlib = self.build_microlib_xs(isotopes, reactions, skipped_dims, type, max_anisop_order);
+            auto microlib = self.build_microlib_xs(isotopes, reactions, skipped_dims, type, max_anisop_order, logfile);
             // convert result to Python dictionary
             py::dict result;
             for (auto & [isotope, rlib] : microlib) {
@@ -193,9 +193,11 @@ void wrap_master_mpo(py::module & readmpo_package) {
             Cross section type to get.
         max_anisop_order : int, default=1
             Max anisotropy order to get for Diffusion and Scattering cross section. If the provided value is larger than
-            the max anisotropy order recovered from MPO file, it will be clamped.)",
+            the max anisotropy order recovered from MPO file, it will be clamped.
+        logfile : str
+            Log file to write out the process.)",
         py::arg("isotopes"), py::arg("reactions"), py::arg("skipped_dims"), py::arg("type") = XsType::Micro,
-        py::arg("max_anisop_order") = 1
+        py::arg("max_anisop_order") = 1, py::arg("log_file") = "log.txt"
     );
     master_mpo_pyclass.def(
         "get_concentration",
@@ -221,6 +223,31 @@ void wrap_master_mpo(py::module & readmpo_package) {
             Name of burnup parameter.)",
         py::arg("isotopes"), py::arg("burnup_name") = "burnup"
     );
+    // string representation
+    master_mpo_pyclass.def(
+        "__repr__",
+        [](MasterMpo & self) { return self.str(); }
+    );
+    // pickle
+    master_mpo_pyclass.def(
+        py::pickle(
+            [](MasterMpo & self) {
+                return py::make_tuple(self.geometry(), self.energy_mesh(), self.n_zone(), self.get_mpo_fnames(),
+                                      self.master_pspace(), self.get_isotopes(), self.get_reactions(),
+                                      self.valid_set());
+            },
+            [](py::tuple state) {
+                if (state.size() != 8) {
+                    throw std::runtime_error("Invalid state!");
+                }
+                MasterMpo * obj = new MasterMpo();
+                obj->set_state(state[0].cast<std::string>(), state[1].cast<std::string>(),
+                               state[2].cast<std::uint64_t>(), state[3].cast<std::vector<std::string>>(),
+                               state[4].cast<std::map<std::string, std::vector<double>>>(),
+                               state[5].cast<std::vector<std::string>>(), state[6].cast<std::vector<std::string>>(),
+                               state[7].cast<std::map<std::string, ValidSet>>());
+                return obj;
+            }));
 }
 
 // Wrap ``readmpo::query_mpo`` function

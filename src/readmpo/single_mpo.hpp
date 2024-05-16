@@ -2,6 +2,7 @@
 #ifndef READMPO_SINGLE_MPO_HPP_
 #define READMPO_SINGLE_MPO_HPP_
 
+#include <fstream>    // std::ofstream
 #include <map>      // std::map
 #include <string>   // std::string
 #include <tuple>    // std::tuple
@@ -94,6 +95,8 @@ class SingleMpo {
 
     /// @name Attributes
     /// @{
+    /** @brief Get filename.*/
+    const std::string & fname(void) const noexcept { return this->fname_; }
     /** @brief Get state parameters.*/
     std::map<std::string, std::vector<double>> get_state_params(void);
     /** @brief Get lowercased parameter names.*/
@@ -117,7 +120,7 @@ class SingleMpo {
     /// @name Extra arguments for Diffusion and Scattering
     /// @{
     /** @brief Get valid parameter set for Diffusion and Scattering reactions.*/
-    void get_valid_set(std::map<std::string, ValidSet> & global_valid_set);
+    void get_valid_set(std::map<std::string, ValidSet> & global_valid_set, std::ofstream & logfile);
     /// @}
 
     /// @name Retrieve data from MPO
@@ -135,7 +138,7 @@ class SingleMpo {
                       const std::vector<std::uint64_t> & global_skipped_dims,
                       const std::map<std::string, ValidSet> & global_valid_set,
                       std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type,
-                      std::uint64_t max_anisop_order);
+                      std::uint64_t max_anisop_order, std::ofstream & logfile);
     /** @brief Retrieve concentration from MPO.
      *  @param isotopes Isotope to get.
      *  @param burnup_i_dim Index of burnup axis.

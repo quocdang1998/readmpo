@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <iterator>   // std::back_inserter
 #include <set>        // std::set
+#include <sstream>    // std::ostringstream
 #include <utility>    // std::move
 
 #include "readmpo/h5_utils.hpp"  // readmpo::is_near
@@ -81,14 +82,15 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
     std::copy(set_reactions.begin(), set_reactions.end(), std::back_inserter(this->avail_reactions_));
     std::cout << "Avail reactions (" << this->avail_reactions_.size() << "): " << this->avail_reactions_ << "\n";
     // get list of valid set for each isotope
-    std::cout << "Anisotropy order for each isotope(\n";
-    std::cout << "isotope              max-diffsion-anisop-order max-scattering-anisop-order valid-in-out-idx-group\n";
     for (std::string & isotope : this->avail_isotopes_) {
         this->valid_set_[isotope] = ValidSet();
     }
+    std::ofstream logfile("log_validset.txt");
     for (SingleMpo & mpofile : this->mpofiles_) {
-        mpofile.get_valid_set(this->valid_set_);
+        mpofile.get_valid_set(this->valid_set_, logfile);
     }
+    std::cout << "Anisotropy order for each isotope(\n";
+    std::cout << "isotope              max-diffsion-anisop-order max-scattering-anisop-order valid-in-out-idx-group\n";
     for (auto & [isotope, iso_validset] : this->valid_set_) {
         std::cout << std::setw(20) << isotope << " ";
         std::cout << std::setw(25) << std::get<0>(iso_validset) << " "
@@ -101,11 +103,21 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
     std::cout << ")\n";
 }
 
+// Get list of MPOfile names
+std::vector<std::string> MasterMpo::get_mpo_fnames(void) const {
+    std::vector<std::string> mpo_fnames;
+    mpo_fnames.resize(this->mpofiles_.size());
+    for (std::uint64_t i_mpo = 0; i_mpo < mpo_fnames.size(); i_mpo++) {
+        mpo_fnames[i_mpo] = this->mpofiles_[i_mpo].fname();
+    }
+    return mpo_fnames;
+}
+
 // Retrieve microscopic homogenized cross sections at some isotopes, reactions and skipped dimensions
 MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
                                     const std::vector<std::string> & reactions,
                                     const std::vector<std::string> & skipped_dims, XsType type,
-                                    std::uint64_t max_anisop_order) {
+                                    std::uint64_t max_anisop_order, const std::string & logfile) {
     // check isotope and reaction
     for (const std::string & isotope : isotopes) {
         auto it = std::find(this->avail_isotopes_.begin(), this->avail_isotopes_.end(), isotope);
@@ -158,9 +170,10 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
     }
     // retrieve data from each MPO file
     std::printf("\n");
+    std::ofstream log(logfile.c_str());
     for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
         this->mpofiles_[i_fmpo].get_microlib(isotopes, reactions, global_skipped_idims, this->valid_set_,
-                                             micro_lib, type, max_anisop_order);
+                                             micro_lib, type, max_anisop_order, log);
         print_process(static_cast<double>(i_fmpo) / static_cast<double>(this->mpofiles_.size()));
     }
     return micro_lib;
@@ -188,6 +201,59 @@ ConcentrationLib MasterMpo::get_concentration(const std::vector<std::string> & i
         mpofile.get_concentration(isotopes, bu_idx, conc_lib);
     }
     return conc_lib;
+}
+
+// String representation
+std::string MasterMpo::str(void) const {
+    std::ostringstream out;
+    out << "<MasterMpo:\n";
+    out << "  Geometry: " << this->geometry_ << "\n";
+    out << "  Emesh: " << this->energy_mesh_ << "\n";
+    out << "  n_zone: " << this->n_zone_ << "\n";
+    out << "  MPO list:\n";
+    for (const SingleMpo & mpofile : this->mpofiles_) {
+        out << "    " << mpofile.fname() << "\n";
+    }
+    out << "  pspace:" << "\n";
+    for (auto & [name, value] : this->master_pspace_) {
+        out << "    " << name << "(" << value.size() << ") : " << value << "\n";
+    }
+    out << "  isotopes (" << this->avail_isotopes_.size() << "): " << this->avail_isotopes_ << "\n";
+    out << "  reactions (" << this->avail_reactions_.size() << "): " << this->avail_reactions_ << "\n";
+    out << "  validset:\n";
+    for (auto & [isotope, iso_validset] : this->valid_set_) {
+        out << "    " << isotope << ":\n";
+        out << "      max-diffusion-anisop-order:" << std::get<0>(iso_validset) << "\n";
+        out << "      max-scattering-anisop-order:" << std::get<1>(iso_validset) << "\n";
+        out << "      departure-arrival-group-idx:\n";
+        for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(iso_validset)) {
+            out << "        (" << p.first << ", " << p.second << ")\n";
+        }
+    }
+    out << ">\n";
+    return out.str();
+}
+
+// Load pickled data
+void MasterMpo::set_state(const std::string & geometry, const std::string & energy_mesh, std::uint64_t n_zone,
+                          const std::vector<std::string> & mpo_fnames,
+                          const std::map<std::string, std::vector<double>> & master_pspace,
+                          const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
+                          const std::map<std::string, ValidSet> & valid_set) {
+    // copy other data
+    this->geometry_ = geometry;
+    this->energy_mesh_ = energy_mesh;
+    this->n_zone_ = n_zone;
+    this->master_pspace_ = master_pspace;
+    this->avail_isotopes_ = isotopes;
+    this->avail_reactions_ = reactions;
+    this->valid_set_ = valid_set;
+    // save each mpo to vector
+    this->mpofiles_.reserve(mpo_fnames.size());
+    for (const std::string & mpofile_name : mpo_fnames) {
+        this->mpofiles_.push_back(SingleMpo(mpofile_name, geometry, energy_mesh));
+        this->mpofiles_.back().construct_global_idx_map(this->master_pspace_);
+    }
 }
 
 }  // namespace readmpo

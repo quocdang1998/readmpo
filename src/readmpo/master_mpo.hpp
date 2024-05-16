@@ -36,6 +36,14 @@ class MasterMpo {
 
     /// @name Attributes
     /// @{
+    /** @brief Get geometry.*/
+    const std::string & geometry(void) const noexcept { return this->geometry_; }
+    /** @brief Get energy mesh.*/
+    const std::string & energy_mesh(void) const noexcept { return this->energy_mesh_; }
+    /** @brief Get number of zones.*/
+    std::uint64_t n_zone(void) const noexcept { return this->n_zone_; }
+    /** @brief Get list of MPOfile names.*/
+    std::vector<std::string> get_mpo_fnames(void) const;
     /** @brief Get merged parameter space.*/
     constexpr const std::map<std::string, std::vector<double>> & master_pspace(void) const noexcept {
         return this->master_pspace_;
@@ -44,6 +52,8 @@ class MasterMpo {
     constexpr const std::vector<std::string> & get_isotopes(void) const noexcept { return this->avail_isotopes_; }
     /** @brief Get available reactions.*/
     constexpr const std::vector<std::string> & get_reactions(void) const noexcept { return this->avail_reactions_; }
+    /** @brief Get valid set.*/
+    const std::map<std::string, ValidSet> & valid_set(void) const noexcept { return this->valid_set_; }
     /// @}
 
     /// @name Retrieve data from MPO
@@ -57,13 +67,29 @@ class MasterMpo {
      */
     MpoLib build_microlib_xs(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
                              const std::vector<std::string> & skipped_dims, XsType type = XsType::Micro,
-                             std::uint64_t max_anisop_order = 1);
+                             std::uint64_t max_anisop_order = 1, const std::string & logfile = "log.txt");
     /** @brief Retrieve concentration of some isotopes at each value of burnup in each zone.
      *  @param isotopes List of isotopes.
      *  @param burnup_name Name of parameter representing burnup.
      */
     ConcentrationLib get_concentration(const std::vector<std::string> & isotopes,
                                        const std::string & burnup_name = "burnup");
+    /// @}
+
+    /// @name Representation
+    /// @{
+    /** @brief String representation.*/
+    std::string str(void) const;
+    /// @}
+
+    /// @name Set state
+    /// @{
+    /** @brief Load pickled data.*/
+    void set_state(const std::string & geometry, const std::string & energy_mesh, std::uint64_t n_zone,
+                   const std::vector<std::string> & mpo_fnames,
+                   const std::map<std::string, std::vector<double>> & master_pspace,
+                   const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
+                   const std::map<std::string, ValidSet> & valid_set);
     /// @}
 
   protected:
