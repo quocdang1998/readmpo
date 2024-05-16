@@ -127,12 +127,14 @@ class SingleMpo {
     /// @{
     /** @brief Retrieve microscopic homogenized cross section of an isotope and a reaction from MPO.
      *  @param isotopes List of isotopes to get.
-     *  @param reaction List of reactions to get.
+     *  @param reactions List of reactions to get.
      *  @param global_skipped_dims Dimensions (0-base indexed) to ignore. Once ignore, elements at any indexes of that
         dimension will be rewrite at index 0.
      *  @param global_valid_set Valid set for each isotope.
      *  @param micro_lib Microscopic library to write data to.
      *  @param type Type of cross section to retrieve.
+     *  @param max_anisop_order Max anisotropy order to retrieve.
+     *  @param logfile Log file to write process to.
      */
     void get_microlib(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
                       const std::vector<std::uint64_t> & global_skipped_dims,

@@ -25,9 +25,11 @@ To decode cross section data for a list of isotopes and reactions:
    # retrieve a list of isotopes and reactions
    macrolib = master_mpo.build_microlib_xs(
        isotopes=["U235", "U238"],
-       reactions=["Absorption", "Diffusion", "NuFission"]
+       reactions=["Absorption", "Diffusion", "Scattering", "NuFission"],
+       skipped_dims=["time"],
        type=XsType.Macro,
-       anisotropy_order=0  # get the zero-th anisotropy order of Diffusion reaction
+       max_anisop_order=2,  # retrieve order 0 and 1
+       log_file="log.txt"
    )
 
    # convert retrieved data to Numpy array without copy
