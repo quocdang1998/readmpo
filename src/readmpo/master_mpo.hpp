@@ -32,6 +32,10 @@ class MasterMpo {
     MasterMpo(const MasterMpo & src) = delete;
     /** @brief Copy assignment.*/
     MasterMpo & operator=(const MasterMpo & src) = delete;
+    /** @brief Move constructor.*/
+    MasterMpo(MasterMpo && src) = default;
+    /** @brief Move assignment.*/
+    MasterMpo & operator=(MasterMpo && src) = default;
     /// @}
 
     /// @name Attributes
@@ -76,6 +80,14 @@ class MasterMpo {
      */
     ConcentrationLib get_concentration(const std::vector<std::string> & isotopes,
                                        const std::string & burnup_name = "burnup");
+    /// @}
+
+    /// @name Serialization
+    /// @{
+    /** @brief Serialize.*/
+    void serialize(const std::string & fname);
+    /** @brief Deserialize.*/
+    void deserialize(const std::string & fname);
     /// @}
 
     /// @name Representation

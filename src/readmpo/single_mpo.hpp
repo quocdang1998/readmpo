@@ -2,7 +2,7 @@
 #ifndef READMPO_SINGLE_MPO_HPP_
 #define READMPO_SINGLE_MPO_HPP_
 
-#include <fstream>    // std::ofstream
+#include <fstream>    // std::istream, std::ofstream, std::ostream
 #include <map>      // std::map
 #include <string>   // std::string
 #include <tuple>    // std::tuple

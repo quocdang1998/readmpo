@@ -2,6 +2,7 @@
 #include <cstdlib>   // std::atoi, std::atol
 #include <iostream>  // std::cout
 #include <iterator>  // std::make_move_iterator
+#include <filesystem>  // std::filesystem::exists
 #include <string>    // std::string
 
 #include "readmpo/glob.hpp"        // readmpo::glob
@@ -36,35 +37,43 @@ int main(int argc, char * argv[]) {
     // parse argument
     unsigned int mode = 0;
     unsigned int xstype = 0;
-    std::uint64_t anisotropy_order = 0;
+    std::uint64_t max_anisotropy_order = 1;
     std::string geometry, energymesh, output_folder = ".";
     std::vector<std::string> filenames, isotopes, reactions, skipped_dims;
+    bool reload = false;
+    std::string mastermpo_name = "master_mpo.txt";
     for (int i = 1; i < argc; i++) {
         std::string argument(argv[i]);
         if (!argument.compare("-h") || !argument.compare("--help")) {
             mode |= 1;
         } else if (!argument.compare("-q") || !argument.compare("--query")) {
             mode |= 2;
-        } else if (!argument.compare("-e") || !argument.compare("--energy-mesh")) {
+        } else if (!argument.compare("-e") || !argument.compare("--emesh")) {
             energymesh = std::string(argv[++i]);
             mode |= 4;
-        } else if (!argument.compare("-g") || !argument.compare("--geometry")) {
+        } else if (!argument.compare("-g") || !argument.compare("--geom")) {
             geometry = std::string(argv[++i]);
             mode |= 4;
-        } else if (!argument.compare("-i") || !argument.compare("--isotope")) {
+        } else if (!argument.compare("-i") || !argument.compare("--iso")) {
             isotopes.push_back(std::string(argv[++i]));
             mode |= 4;
-        } else if (!argument.compare("-r") || !argument.compare("--reaction")) {
+        } else if (!argument.compare("-r") || !argument.compare("--reac")) {
             reactions.push_back(std::string(argv[++i]));
             mode |= 4;
-        } else if (!argument.compare("-o") || !argument.compare("--output")) {
+        } else if (!argument.compare("-o") || !argument.compare("--outdir")) {
             output_folder = std::string(argv[++i]);
             mode |= 4;
-        } else if (!argument.compare("-sk") || !argument.compare("--skip-dims")) {
+        } else if (!argument.compare("-sk") || !argument.compare("--skipdims")) {
             skipped_dims.push_back(std::string(argv[++i]));
             mode |= 4;
-        } else if (!argument.compare("-xs") || !argument.compare("--xs-type")) {
+        } else if (!argument.compare("-xs") || !argument.compare("--type")) {
             xstype = std::atoi(argv[++i]);
+            mode |= 4;
+        } else if (!argument.compare("-mao") || !argument.compare("--maxanisop")) {
+            max_anisotropy_order = std::atoi(argv[++i]);
+            mode |= 4;
+        } else if (!argument.compare("-l") || !argument.compare("--reload")) {
+            reload = true;
             mode |= 4;
         } else {
             // filenames.push_back(argument);
@@ -91,13 +100,25 @@ int main(int argc, char * argv[]) {
     }
     // construct master MPO and retrieve data
     if (mode == 4) {
-        MasterMpo master_mpo(filenames, geometry, energymesh);
+        MasterMpo master_mpo;
+        if (reload) {
+            if (!std::filesystem::exists(mastermpo_name)) {
+                throw std::runtime_error("Executed in reload mode, but unable to open master_mpo.txt.\n");
+            }
+            master_mpo.deserialize(mastermpo_name);
+        } else {
+            master_mpo = MasterMpo(filenames, geometry, energymesh);
+        }
+        std::cout << master_mpo.str() << "\n";
         MpoLib microlib = master_mpo.build_microlib_xs(isotopes, reactions, skipped_dims, static_cast<XsType>(xstype));
         for (auto & [isotope, rlib] : microlib) {
             for (auto & [reaction, lib] : rlib) {
                 std::string outfname = stringify(output_folder, "/", isotope, "_", reaction, ".txt");
                 lib.serialize(outfname);
             }
+        }
+        if (!reload) {
+            master_mpo.serialize(mastermpo_name);
         }
         return 0;
     }

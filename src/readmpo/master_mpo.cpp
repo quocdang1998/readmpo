@@ -4,12 +4,14 @@
 #include <algorithm>  // std::copy, std::find, std::set_union, std::sort, std::unique
 #include <iostream>   // std::cout
 #include <iomanip>
+#include <fstream>
 #include <iterator>   // std::back_inserter
 #include <set>        // std::set
 #include <sstream>    // std::ostringstream
 #include <utility>    // std::move
 
 #include "readmpo/h5_utils.hpp"  // readmpo::is_near
+#include "readmpo/serializer.hpp"  // readmpo::serialize_obj, readmpo::deserialize_obj
 
 namespace readmpo {
 
@@ -201,6 +203,38 @@ ConcentrationLib MasterMpo::get_concentration(const std::vector<std::string> & i
         mpofile.get_concentration(isotopes, bu_idx, conc_lib);
     }
     return conc_lib;
+}
+
+// Serialize
+void MasterMpo::serialize(const std::string & fname) {
+    std::ofstream out(fname.c_str());
+    serialize_obj(out, this->geometry_);
+    serialize_obj(out, this->energy_mesh_);
+    serialize_obj(out, this->n_zone_);
+    std::vector<std::string> mpo_fnames = this->get_mpo_fnames();
+    serialize_obj(out, mpo_fnames);
+    serialize_obj(out, this->master_pspace_);
+    serialize_obj(out, this->avail_isotopes_);
+    serialize_obj(out, this->avail_reactions_);
+    serialize_obj(out, this->valid_set_);
+}
+
+// Deserialize
+void MasterMpo::deserialize(const std::string & fname) {
+    std::ifstream in(fname.c_str());
+    deserialize_obj(in, this->geometry_);
+    deserialize_obj(in, this->energy_mesh_);
+    deserialize_obj(in, this->n_zone_);
+    std::vector<std::string> mpo_fnames;
+    deserialize_obj(in, mpo_fnames);
+    for (const std::string & mpofile_name : mpo_fnames) {
+        this->mpofiles_.push_back(SingleMpo(mpofile_name, this->geometry_, this->energy_mesh_));
+        this->mpofiles_.back().construct_global_idx_map(this->master_pspace_);
+    }
+    deserialize_obj(in, this->master_pspace_);
+    deserialize_obj(in, this->avail_isotopes_);
+    deserialize_obj(in, this->avail_reactions_);
+    deserialize_obj(in, this->valid_set_);
 }
 
 // String representation
