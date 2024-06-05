@@ -156,6 +156,14 @@ class SingleMpo {
     std::string str(void) const;
     /// @}
 
+    /// @name Close and reopen
+    /// @{
+    /** @brief Close file and flush memory.*/
+    void close(void);
+    /** @brief Reopen file.*/
+    void reopen(void);
+    /// @}
+
     /// @name Destructor
     /// @{
     /** @brief Default destructor.*/

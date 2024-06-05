@@ -83,13 +83,18 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
     }
     std::copy(set_reactions.begin(), set_reactions.end(), std::back_inserter(this->avail_reactions_));
     std::cout << "Avail reactions (" << this->avail_reactions_.size() << "): " << this->avail_reactions_ << "\n";
+    for (SingleMpo & mpofile : this->mpofiles_) {
+        mpofile.close();
+    }
     // get list of valid set for each isotope
     for (std::string & isotope : this->avail_isotopes_) {
         this->valid_set_[isotope] = ValidSet();
     }
     std::ofstream logfile("log_validset.txt");
     for (SingleMpo & mpofile : this->mpofiles_) {
+        mpofile.reopen();
         mpofile.get_valid_set(this->valid_set_, logfile);
+        mpofile.close();
     }
     std::cout << "Anisotropy order for each isotope(\n";
     std::cout << "isotope              max-diffsion-anisop-order max-scattering-anisop-order valid-in-out-idx-group\n";
@@ -174,9 +179,11 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
     std::printf("\n");
     std::ofstream log(logfile.c_str());
     for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
+        this->mpofiles_[i_fmpo].reopen();
         this->mpofiles_[i_fmpo].get_microlib(isotopes, reactions, global_skipped_idims, this->valid_set_,
                                              micro_lib, type, max_anisop_order, log);
         print_process(static_cast<double>(i_fmpo) / static_cast<double>(this->mpofiles_.size()));
+        this->mpofiles_[i_fmpo].close();
     }
     return micro_lib;
 }
@@ -200,7 +207,9 @@ ConcentrationLib MasterMpo::get_concentration(const std::vector<std::string> & i
     std::uint64_t bu_idx = std::distance(this->master_pspace_.begin(), this->master_pspace_.find(burnup_name));
     for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
         SingleMpo & mpofile = this->mpofiles_[i_fmpo];
+        mpofile.reopen();
         mpofile.get_concentration(isotopes, bu_idx, conc_lib);
+        mpofile.close();
     }
     return conc_lib;
 }
@@ -227,14 +236,15 @@ void MasterMpo::deserialize(const std::string & fname) {
     deserialize_obj(in, this->n_zone_);
     std::vector<std::string> mpo_fnames;
     deserialize_obj(in, mpo_fnames);
-    for (const std::string & mpofile_name : mpo_fnames) {
-        this->mpofiles_.push_back(SingleMpo(mpofile_name, this->geometry_, this->energy_mesh_));
-        this->mpofiles_.back().construct_global_idx_map(this->master_pspace_);
-    }
     deserialize_obj(in, this->master_pspace_);
     deserialize_obj(in, this->avail_isotopes_);
     deserialize_obj(in, this->avail_reactions_);
     deserialize_obj(in, this->valid_set_);
+    for (const std::string & mpofile_name : mpo_fnames) {
+        this->mpofiles_.push_back(SingleMpo(mpofile_name, this->geometry_, this->energy_mesh_));
+        this->mpofiles_.back().construct_global_idx_map(this->master_pspace_);
+        this->mpofiles_.back().close();
+    }
 }
 
 // String representation
@@ -287,6 +297,7 @@ void MasterMpo::set_state(const std::string & geometry, const std::string & ener
     for (const std::string & mpofile_name : mpo_fnames) {
         this->mpofiles_.push_back(SingleMpo(mpofile_name, geometry, energy_mesh));
         this->mpofiles_.back().construct_global_idx_map(this->master_pspace_);
+        this->mpofiles_.back().close();
     }
 }
 

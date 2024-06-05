@@ -183,6 +183,7 @@ void SingleMpo::construct_global_idx_map(const std::map<std::string, std::vector
 // Get valid parameter set for Diffusion and Scattering reactions
 void SingleMpo::get_valid_set(std::map<std::string, ValidSet> & global_valid_set, std::ofstream & logfile) {
     logfile << "Reading " << this->fname_ << ":";
+    logfile.flush();
     // get addrxs and transprofile
     auto [addrxs, addrxs_shape] = get_dset<int>(this->output_, "info/ADDRXS");
     auto [transprofile, transprf_shape] = get_dset<int>(this->output_, "info/TRANSPROFILE");
@@ -195,6 +196,7 @@ void SingleMpo::get_valid_set(std::map<std::string, ValidSet> & global_valid_set
     for (std::string & statept_name : statepts) {
         // get statept
         logfile << " " << statept_name;
+        logfile.flush();
         H5::Group statept = this->output_->openGroup(statept_name.c_str());
         // loop over each zone
         for (std::uint64_t i_zone = 0; i_zone < this->n_zones; i_zone++) {
@@ -249,6 +251,7 @@ void SingleMpo::get_valid_set(std::map<std::string, ValidSet> & global_valid_set
         }
     }
     logfile << "\n";
+    logfile.flush();
 }
 
 // Retrieve microscopic homogenized cross section of an isotope and a reaction from MPO
@@ -258,6 +261,7 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
                       std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type,
                       std::uint64_t max_anisop_order, std::ofstream & logfile) {
     logfile << "Rettrieving " << this->fname_ << ":";
+    logfile.flush();
     // check for isotope and reaction
     std::set<std::string> mpo_isotopes = this->get_isotopes();
     for (const std::string & isotope : isotopes) {
@@ -287,6 +291,7 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
     for (std::string & statept_name : statepts) {
         // get statept
         logfile << " " << statept_name;
+        logfile.flush();
         H5::Group statept = this->output_->openGroup(statept_name.c_str());
         // get global index inside the output array
         auto [local_idx, total_ndim] = get_dset<int>(&statept, "PARAMVALUEORD");
@@ -387,6 +392,7 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
         }
     }
     logfile << "\n";
+    logfile.flush();
 }
 
 // Retrieve concentration from MPO
@@ -439,6 +445,20 @@ std::string SingleMpo::str(void) const {
     std::ostringstream os;
     os << "<MpoFile \"" << this->fname_ << "\" output \"" << this->output_name_ << "\">";
     return os.str();
+}
+
+// Close file and flush memory
+void SingleMpo::close(void) {
+    delete this->output_;
+    this->output_ = nullptr;
+    delete this->file_;
+    this->file_ = nullptr;
+}
+
+// Reopen file
+void SingleMpo::reopen(void) {
+    this->file_ = new H5::H5File(this->fname_.c_str(), H5F_ACC_RDONLY);
+    this->output_ = new H5::Group(this->file_->openGroup(this->output_name_.c_str()));
 }
 
 // Default destructor

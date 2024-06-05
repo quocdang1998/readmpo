@@ -108,17 +108,14 @@ int main(int argc, char * argv[]) {
             master_mpo.deserialize(mastermpo_name);
         } else {
             master_mpo = MasterMpo(filenames, geometry, energymesh);
+            master_mpo.serialize(mastermpo_name);
         }
-        std::cout << master_mpo.str() << "\n";
         MpoLib microlib = master_mpo.build_microlib_xs(isotopes, reactions, skipped_dims, static_cast<XsType>(xstype));
         for (auto & [isotope, rlib] : microlib) {
             for (auto & [reaction, lib] : rlib) {
                 std::string outfname = stringify(output_folder, "/", isotope, "_", reaction, ".txt");
                 lib.serialize(outfname);
             }
-        }
-        if (!reload) {
-            master_mpo.serialize(mastermpo_name);
         }
         return 0;
     }
