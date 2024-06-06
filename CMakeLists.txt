@@ -1,8 +1,7 @@
 cmake_minimum_required(VERSION 3.26)
 project(readmpo LANGUAGES CXX)
 
-set(HDF5_USE_STATIC_LIBRARIES TRUE)
-find_package(HDF5 COMPONENTS CXX)
+find_package(HDF5 COMPONENTS C CXX)
 find_package(OpenMP QUIET REQUIRED)
 
 list(APPEND READMPO_SRC_CPP
@@ -36,8 +35,8 @@ set(READMPO_CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/readmpo_config.py)
 file(WRITE ${READMPO_CONFIG} "")
 file(APPEND ${READMPO_CONFIG} "H5_INCLUDE = \"${HDF5_INCLUDE_DIRS}\"\n")
 get_target_property(H5_CXXLIB hdf5::hdf5_cpp LOCATION)
-file(APPEND ${READMPO_CONFIG} "H5_CXXLIB = \"${H5_CXXLIB}\"\n")
+get_filename_component(H5_LIB ${H5_CXXLIB} DIRECTORY)
+file(APPEND ${READMPO_CONFIG} "H5_LIB = \"${H5_LIB}\"\n")
 file(APPEND ${READMPO_CONFIG} "H5_DEPENDANCIES = \"${HDF5_CXX_LIBRARIES}\"\n")
-
-get_target_property(VALUE hdf5::hdf5_cpp LOCATION)
-message("Got property ${VALUE}")
+get_filename_component(H5_BIN ${HDF5_DIFF_EXECUTABLE} DIRECTORY)
+file(APPEND ${READMPO_CONFIG} "H5_BIN = \"${H5_BIN}\"\n")

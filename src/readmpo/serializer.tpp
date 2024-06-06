@@ -21,7 +21,7 @@ void serialize_obj(std::ostream & os, const std::pair<F, S> & obj) {
 // Serialize a tuple
 template <typename... Args>
 void serialize_obj(std::ostream & os, const std::tuple<Args...> & obj) {
-    std::apply([&os](const auto & ... ts) { (..., serialize_obj(os, ts)); }, obj);
+    std::apply([&os](const auto &... ts) { (..., serialize_obj(os, ts)); }, obj);
 }
 
 // Serialize a string
@@ -80,7 +80,7 @@ void deserialize_obj(std::istream & is, std::pair<F, S> & obj) {
 // Deserialize a tuple
 template <typename... Args>
 void deserialize_obj(std::istream & is, std::tuple<Args...> & obj) {
-    std::apply([&is](auto & ... ts) { (..., deserialize_obj(is, ts)); }, obj);
+    std::apply([&is](auto &... ts) { (..., deserialize_obj(is, ts)); }, obj);
 }
 
 // Deserialize a string

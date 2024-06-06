@@ -10,7 +10,7 @@
 #include <utility>    // std::pair
 #include <vector>     // std::vector
 
-#include "H5Cpp.h"  // H5::Group
+#include <H5Cpp.h>  // H5::Group
 
 namespace readmpo {
 

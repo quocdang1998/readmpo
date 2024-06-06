@@ -2,15 +2,15 @@
 #include "readmpo/master_mpo.hpp"
 
 #include <algorithm>  // std::copy, std::find, std::set_union, std::sort, std::unique
-#include <iostream>   // std::cout
-#include <iomanip>
 #include <fstream>
-#include <iterator>   // std::back_inserter
-#include <set>        // std::set
-#include <sstream>    // std::ostringstream
-#include <utility>    // std::move
+#include <iomanip>
+#include <iostream>  // std::cout
+#include <iterator>  // std::back_inserter
+#include <set>       // std::set
+#include <sstream>   // std::ostringstream
+#include <utility>   // std::move
 
-#include "readmpo/h5_utils.hpp"  // readmpo::is_near
+#include "readmpo/h5_utils.hpp"    // readmpo::is_near
 #include "readmpo/serializer.hpp"  // readmpo::serialize_obj, readmpo::deserialize_obj
 
 namespace readmpo {
@@ -100,8 +100,8 @@ geometry_(geometry), energy_mesh_(energy_mesh) {
     std::cout << "isotope              max-diffsion-anisop-order max-scattering-anisop-order valid-in-out-idx-group\n";
     for (auto & [isotope, iso_validset] : this->valid_set_) {
         std::cout << std::setw(20) << isotope << " ";
-        std::cout << std::setw(25) << std::get<0>(iso_validset) << " "
-                  << std::setw(27) << std::get<1>(iso_validset) << " ";
+        std::cout << std::setw(25) << std::get<0>(iso_validset) << " " << std::setw(27) << std::get<1>(iso_validset)
+                  << " ";
         for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(iso_validset)) {
             std::cout << "(" << p.first << " " << p.second << "), ";
         }
@@ -162,12 +162,12 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
                 for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
                     micro_lib[isotope][stringify(reaction, anisop)] = NdArray(shape_lib);
                 }
-            }
-            else if (reaction.compare("Scattering") == 0) {
+            } else if (reaction.compare("Scattering") == 0) {
                 std::uint64_t max_anisop = std::min(std::get<1>(this->valid_set_[isotope]), max_anisop_order);
                 for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
                     for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(this->valid_set_[isotope])) {
-                        micro_lib[isotope][stringify(reaction, anisop, '_', p.first, '-', p.second)] = NdArray(shape_lib);
+                        micro_lib[isotope][stringify(reaction, anisop, '_', p.first, '-', p.second)] = NdArray(
+                            shape_lib);
                     }
                 }
             } else {
@@ -180,8 +180,8 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
     std::ofstream log(logfile.c_str());
     for (std::uint64_t i_fmpo = 0; i_fmpo < this->mpofiles_.size(); i_fmpo++) {
         this->mpofiles_[i_fmpo].reopen();
-        this->mpofiles_[i_fmpo].get_microlib(isotopes, reactions, global_skipped_idims, this->valid_set_,
-                                             micro_lib, type, max_anisop_order, log);
+        this->mpofiles_[i_fmpo].get_microlib(isotopes, reactions, global_skipped_idims, this->valid_set_, micro_lib,
+                                             type, max_anisop_order, log);
         print_process(static_cast<double>(i_fmpo) / static_cast<double>(this->mpofiles_.size()));
         this->mpofiles_[i_fmpo].close();
     }
@@ -258,7 +258,7 @@ std::string MasterMpo::str(void) const {
     for (const SingleMpo & mpofile : this->mpofiles_) {
         out << "    " << mpofile.fname() << "\n";
     }
-    out << "  pspace:" << "\n";
+    out << "  pspace:\n";
     for (auto & [name, value] : this->master_pspace_) {
         out << "    " << name << "(" << value.size() << ") : " << value << "\n";
     }

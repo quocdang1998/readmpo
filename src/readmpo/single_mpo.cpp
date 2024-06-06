@@ -3,8 +3,9 @@
 
 #include <algorithm>  // std::find, std::max
 #include <iostream>   // std::clog
-#include <stdexcept>  // std::invalid_argument
 #include <sstream>    // std::ostringstream
+#include <stdexcept>  // std::invalid_argument
+
 
 #include "readmpo/h5_utils.hpp"  // readmpo::check_string_in_array, readmpo::get_dset, readmpo::ndim_to_c_idx,
                                  // readmpo::stringify, readmpo::lowercase, readmpo::trim, readmpo::is_near,
@@ -200,7 +201,7 @@ void SingleMpo::get_valid_set(std::map<std::string, ValidSet> & global_valid_set
         H5::Group statept = this->output_->openGroup(statept_name.c_str());
         // loop over each zone
         for (std::uint64_t i_zone = 0; i_zone < this->n_zones; i_zone++) {
-             // open zone
+            // open zone
             std::string zone_name = stringify("zone_", i_zone);
             H5::Group zone = statept.openGroup(zone_name.c_str());
             // get addrzx
@@ -240,8 +241,8 @@ void SingleMpo::get_valid_set(std::map<std::string, ValidSet> & global_valid_set
                 // loop for each departure group and arrival group
                 for (std::uint64_t departure_gridx = 0; departure_gridx < this->n_groups; departure_gridx++) {
                     for (std::uint64_t arrival_gridx = 0; arrival_gridx < this->n_groups; arrival_gridx++) {
-                        int scale =
-                            trans_adr[departure_gridx] + static_cast<int>(arrival_gridx) - trans_fag[departure_gridx];
+                        int scale = trans_adr[departure_gridx] + static_cast<int>(arrival_gridx) -
+                                    trans_fag[departure_gridx];
                         if ((trans_adr[departure_gridx] <= scale) && (scale < trans_adr[departure_gridx + 1])) {
                             std::get<2>(valid_set).insert(std::make_pair(departure_gridx, arrival_gridx));
                         }
@@ -256,10 +257,10 @@ void SingleMpo::get_valid_set(std::map<std::string, ValidSet> & global_valid_set
 
 // Retrieve microscopic homogenized cross section of an isotope and a reaction from MPO
 void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const std::vector<std::string> & reactions,
-                      const std::vector<std::uint64_t> & global_skipped_dims,
-                      const std::map<std::string, ValidSet> & global_valid_set,
-                      std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type,
-                      std::uint64_t max_anisop_order, std::ofstream & logfile) {
+                             const std::vector<std::uint64_t> & global_skipped_dims,
+                             const std::map<std::string, ValidSet> & global_valid_set,
+                             std::map<std::string, std::map<std::string, NdArray>> & micro_lib, XsType type,
+                             std::uint64_t max_anisop_order, std::ofstream & logfile) {
     logfile << "Rettrieving " << this->fname_ << ":";
     logfile.flush();
     // check for isotope and reaction
@@ -296,7 +297,8 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
         // get global index inside the output array
         auto [local_idx, total_ndim] = get_dset<int>(&statept, "PARAMVALUEORD");
         for (std::uint64_t idim_global = 0, write_idim = 2; idim_global < total_ndim[0]; idim_global++) {
-            if (std::find(global_skipped_dims.begin(), global_skipped_dims.end(), idim_global) != global_skipped_dims.end()) {
+            if (std::find(global_skipped_dims.begin(), global_skipped_dims.end(), idim_global) !=
+                global_skipped_dims.end()) {
                 continue;
             }
             std::uint64_t idim_local = this->map_local_idim_[idim_global];
@@ -360,7 +362,7 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
                     }
                     // get cross section
                     if (reaction.compare("Diffusion") == 0) {
-                    // get cross section for Diffusion
+                        // get cross section for Diffusion
                         std::uint64_t max_anisop = std::min(std::get<0>(valid_set), max_anisop_order);
                         for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
                             NdArray & output_data = micro_lib[isotope][stringify(reaction, anisop)];
@@ -385,7 +387,7 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
                         // get cross section for others reaction
                         NdArray & output_data = micro_lib[isotope][reaction];
                         get_xs(this->n_groups, output_index, address_xs, output_data, type, cross_sections, zoneflux,
-                                iso_conc);
+                               iso_conc);
                     }
                 }
             }

@@ -20,14 +20,13 @@ ext_options = {
     "libraries": ["readmpo", "hdf5_cpp", "hdf5"],
     "library_dirs": ["build"]
 }
-H5_LIBDIRS = [os.path.join(os.path.dirname(libpath), "lib") for libpath in H5_INCLUDE.split(";")]
-ext_options["library_dirs"] += H5_LIBDIRS
+ext_options["library_dirs"] += [H5_LIB]
 if sys.platform == "linux":
-    ext_options["extra_compile_args"] = ["-std=c++20"]
+    ext_options["extra_compile_args"] = ["-std=c++20", "-flto=auto", "-fno-fat-lto-objects"]
     ext_options["depends"] = ["readmpo/main.cpp", "build/libreadmpo.a"]
-    ext_options["runtime_library_dirs"] = H5_LIBDIRS
+    ext_options["runtime_library_dirs"] = [H5_LIB]
 elif sys.platform == "win32":
-    ext_options["extra_compile_args"] = ["-std:c++20"]
+    ext_options["extra_compile_args"] = ["/std:c++20"]
     ext_options["depends"] = ["readmpo/main.cpp", "build/readmpo.lib"]
 
 # build extension
@@ -37,13 +36,13 @@ readmpo_extensions = [
 
 # create __init__.py
 if sys.platform == "win32":
-    init_template_txt = "import os\nos.add_dll_directory(\"{{ h5_libdir }}\")\n"
+    init_template_txt = "import os\nos.add_dll_directory(\"{{ h5_bin }}\")\n"
 else:
     init_template_txt = ""
 init_template_txt += "from readmpo.clib import *\n"
 init_template = Template(init_template_txt)
 template_dict = {
-    "h5_libdir": os.path.abspath(os.path.join(H5_LIBDIRS[0], "../bin")).replace("\\", "\\\\")
+    "h5_bin": H5_BIN
 }
 
 if __name__ == "__main__":

@@ -2,16 +2,16 @@
 #ifndef READMPO_SERIALIZER_HPP_
 #define READMPO_SERIALIZER_HPP_
 
-#include <cstdint>  // std::uint32_t
-#include <istream>  // std::istream
-#include <ostream>  // std::ostream
-#include <map>      // std::map
-#include <string>   // std::string
-#include <tuple>    // std::tuple
-#include <type_traits>  // std::is_trivially_copyable
+#include <cstdint>        // std::uint32_t
+#include <istream>        // std::istream
+#include <map>            // std::map
+#include <ostream>        // std::ostream
+#include <string>         // std::string
+#include <tuple>          // std::tuple
+#include <type_traits>    // std::is_trivially_copyable
 #include <unordered_set>  // std::unordered_set
-#include <utility>  // std::pair
-#include <vector>  // std::vector
+#include <utility>        // std::pair
+#include <vector>         // std::vector
 
 namespace readmpo {
 

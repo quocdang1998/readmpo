@@ -2,21 +2,21 @@
 #ifndef READMPO_SINGLE_MPO_HPP_
 #define READMPO_SINGLE_MPO_HPP_
 
-#include <fstream>    // std::istream, std::ofstream, std::ostream
-#include <map>      // std::map
-#include <string>   // std::string
-#include <tuple>    // std::tuple
-#include <set>      // std::set
+#include <fstream>        // std::istream, std::ofstream, std::ostream
+#include <map>            // std::map
+#include <set>            // std::set
+#include <string>         // std::string
+#include <tuple>          // std::tuple
 #include <unordered_set>  // std::unordered_set
-#include <utility>  // std::exchange, std::pair
-#include <vector>   // std::vector
+#include <utility>        // std::exchange, std::pair
+#include <vector>         // std::vector
 
-#include "H5Cpp.h"  // H5::H5File, H5::Group
+#include <H5Cpp.h>  // H5::H5File, H5::Group
 
 #include "readmpo/nd_array.hpp"  // readmpo::NdArray
 
 /** @brief Hash a pair of integers.*/
-template<>
+template <>
 struct std::hash<std::pair<std::uint64_t, std::uint64_t>> {
     std::uint64_t operator()(const std::pair<std::uint64_t, std::uint64_t> & p) const {
         auto hash1 = std::hash<std::uint64_t>{}(p.first);
