@@ -379,7 +379,7 @@ void SingleMpo::get_microlib(const std::vector<std::string> & isotopes, const st
                                     micro_lib[isotope][stringify(reaction, anisop, '_', p.first, '-', p.second)];
                                 int scale = trans_adr[p.first] + static_cast<int>(p.second) - trans_fag[p.first];
                                 std::int64_t adr_xs = address_xs + anisop * this->n_groups + scale;
-                                get_xs(this->n_groups, output_index, adr_xs, output_data, type, cross_sections,
+                                get_xs(1, output_index, adr_xs, output_data, type, cross_sections,
                                        zoneflux, iso_conc);
                             }
                         }

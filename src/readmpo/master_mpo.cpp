@@ -153,6 +153,8 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
         }
         idx_param++;
     }
+    std::vector<std::uint64_t> scattering_shape_lib(shape_lib);
+    scattering_shape_lib[0] = 1;
     // allocate data for microlib
     MpoLib micro_lib;
     for (const std::string & isotope : isotopes) {
@@ -167,7 +169,7 @@ MpoLib MasterMpo::build_microlib_xs(const std::vector<std::string> & isotopes,
                 for (std::uint64_t anisop = 0; anisop < max_anisop; anisop++) {
                     for (const std::pair<std::uint64_t, std::uint64_t> & p : std::get<2>(this->valid_set_[isotope])) {
                         micro_lib[isotope][stringify(reaction, anisop, '_', p.first, '-', p.second)] = NdArray(
-                            shape_lib);
+                            scattering_shape_lib);
                     }
                 }
             } else {
